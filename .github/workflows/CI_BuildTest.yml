@@ -20,7 +20,7 @@ jobs:
       run: cmake -GNinja -Bbuild
       
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --target swpp-compiler
+      run: cmake --build build --target swpp-compiler
 
     - name: Test
       working-directory: ${{github.workspace}}/build
