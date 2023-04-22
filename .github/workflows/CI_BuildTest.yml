@@ -1,0 +1,28 @@
+name: CI Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    container: strikef/swpp-ci
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Configure CMake
+      run: cmake -GNinja -Bbuild
+      
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --target swpp-compiler
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest
+
