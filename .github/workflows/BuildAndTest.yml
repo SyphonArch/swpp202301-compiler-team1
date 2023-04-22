@@ -23,6 +23,5 @@ jobs:
       run: cmake --build build --target swpp-compiler
 
     - name: Test
-      working-directory: ${{github.workspace}}/build
-      run: ctest
+      run: ctest --test-dir build
 
