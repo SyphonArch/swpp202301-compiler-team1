@@ -12,7 +12,7 @@ define i32 @main(i32 %a, i32 %b) {
 ; CHECK-NEXT:    br label [[BB_EXIT]]
 ; CHECK:       bb_exit:
 ; CHECK-NEXT:    call void @f(i32 [[A]], i32 [[B]])
-; CHECK-NEXT:    ret i32 [[B]]
+; CHECK-NEXT:    ret i32 [[A]]
 
   %cond = icmp eq i32 %a, %b
   br i1 %cond, label %bb_true, label %bb_false
