@@ -80,7 +80,13 @@ function(add_opt_pass pass_name file_name)
     target_link_libraries(OptPasses INTERFACE ${pass_name})
 endfunction()
 
+enable_testing()
+add_test(NAME unit_tests COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests.py ${LLVM_BINARY_DIR})
+message(STATUS "python3 ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests.py ${LLVM_BINARY_DIR}")
+
 # /================= ADD OPT PASSES BELOW ================/
+
+add_opt_pass(DemoPropagateIntegerEquality demopropinteq.cpp)
 
 # /================== DO NOT EDIT BELOW ==================/
 add_library(SCOpt ${SRC_DIR}/lib/opt.cpp)
