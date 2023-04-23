@@ -2,5 +2,6 @@
 .cache
 build
 docs
-*.ll
+# *.ll
 *.s
+tmp/
