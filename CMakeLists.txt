@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13.0)
-project(swpp-compiler VERSION 2023.1.0)
+project(swpp-compiler VERSION 2023.1.1)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,6 +27,8 @@ target_link_libraries(SCParser ${parser_llvm_libs})
 
 add_library(SCPrintIR ${SRC_DIR}/lib/print_ir.cpp)
 target_include_directories(SCPrintIR PRIVATE ${LLVM_INCLUDE_DIRS})
+llvm_map_components_to_libnames(printer_llvm_libs core support)
+target_link_libraries(SCPrintIR ${printer_llvm_libs})
 
 set(SRC_BACKEND_DIR ${SRC_DIR}/lib/backend)
 add_library(SCBackendAssembly OBJECT
@@ -59,20 +61,21 @@ add_backend_pass(SCBackendGEPConstCombPass gep_const_combine.cpp)
 add_backend_pass(SCBackendPHIPreprocessPass phi_preprocess.cpp)
 add_backend_pass(SCBackendRegAllocPass register_allocate.cpp)
 
-llvm_map_components_to_libnames(pass_llvm_libs passes analysis)
 add_library(SCBackend ${SRC_DIR}/lib/backend.cpp)
 target_include_directories(SCBackend PRIVATE ${LLVM_INCLUDE_DIRS})
+llvm_map_components_to_libnames(backend_llvm_libs analysis scalaropts)
 target_link_libraries(SCBackend PRIVATE
                         SCPrintIR SCBackendAssembly SCBackendAnalysis
                         SCBackendEmitter SCBackendSymbol SCBackendCheckOraclePass
                         SCBackendConstExprElimPass SCBackendGEPElimPass
                         SCBackendGVElimPass SCBackendAllocaElimPass
                         SCBackendGEPConstCombPass SCBackendPHIPreprocessPass
-                        SCBackendRegAllocPass)
+                        SCBackendRegAllocPass ${backend_llvm_libs})
 
 set(SRC_OPT_DIR ${SRC_DIR}/lib/opt)
 add_library(OptPasses INTERFACE)
 
+llvm_map_components_to_libnames(pass_llvm_libs passes analysis core support)
 function(add_opt_pass pass_name file_name)
     add_library(${pass_name} ${SRC_OPT_DIR}/${file_name})
     target_include_directories(${pass_name} PRIVATE ${LLVM_INCLUDE_DIRS})
@@ -90,14 +93,15 @@ add_opt_pass(DemoPropagateIntegerEquality demopropinteq.cpp)
 # /================== DO NOT EDIT BELOW ==================/
 add_library(SCOpt ${SRC_DIR}/lib/opt.cpp)
 target_include_directories(SCOpt PRIVATE ${LLVM_INCLUDE_DIRS})
-target_link_libraries(SCOpt PRIVATE SCPrintIR OptPasses)
+llvm_map_components_to_libnames(opt_llvm_libs analysis passes)
+target_link_libraries(SCOpt PRIVATE SCPrintIR OptPasses ${opt_llvm_libs})
 
 set(PROJECT_LIB "SComp")
 add_library(${PROJECT_LIB} ${SRC_DIR}/lib.cpp)
 target_include_directories(${PROJECT_LIB} PRIVATE ${LLVM_INCLUDE_DIRS})
+llvm_map_components_to_libnames(comp_llvm_libs passes analysis)
 target_link_libraries(${PROJECT_LIB} PRIVATE
-                         Fs SCBackend SCOpt SCParser)
-target_link_libraries(${PROJECT_LIB} PRIVATE ${pass_llvm_libs})
+                         Fs SCBackend SCPrintIR SCOpt SCParser ${comp_llvm_libs})
 
 add_executable(${PROJECT_NAME} ${SRC_DIR}/main.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_LIB} SCArgs)
@@ -121,3 +125,6 @@ if (DOXYGEN_FOUND)
 else (DOXYGEN_FOUND)
   message("Doxygen should be installed to generate the doxygen documentation")
 endif (DOXYGEN_FOUND)
+
+enable_testing()
+# Add tests, subdirectories, etc below
