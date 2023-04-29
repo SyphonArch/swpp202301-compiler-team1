@@ -83,8 +83,6 @@ function(add_opt_pass pass_name file_name)
     target_link_libraries(OptPasses INTERFACE ${pass_name})
 endfunction()
 
-enable_testing()
-add_test(NAME unit_tests COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests.py ${LLVM_BINARY_DIR})
 
 # /================= ADD OPT PASSES BELOW ================/
 
@@ -128,3 +126,4 @@ endif (DOXYGEN_FOUND)
 
 enable_testing()
 # Add tests, subdirectories, etc below
+add_test(NAME unit_tests COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests.py ${LLVM_BINARY_DIR})
