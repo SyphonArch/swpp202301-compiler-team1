@@ -5,7 +5,7 @@
  * @file result.h
  * @author SWPP TAs (swpp@sf.snu.ac.kr)
  * @brief Header-only module for monadic results
- * @version 2023.1.0
+ * @version 2023.1.1
  * @date 2023-04-16
  * @copyright Copyright (c) 2022-2023 SWPP TAs
  */
@@ -221,7 +221,7 @@ public:
    * @param data output to copy into the Result
    * @return constexpr Result of Ok state
    */
-  constexpr static Result Ok(const T &data) noexcept {
+  constexpr static Result Ok(const T &data) {
     return Result(Kind::OK, data);
   }
 
@@ -239,7 +239,7 @@ public:
    * @param data output to copy into the Result
    * @return constexpr Result of Ok state
    */
-  constexpr static Result Err(const E &data) noexcept {
+  constexpr static Result Err(const E &data) {
     return Result(Kind::ERR, data);
   }
 
