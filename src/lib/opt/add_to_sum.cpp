@@ -111,9 +111,9 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     }
   }
 
-  for (auto &entry : AddDepthVec) {
-    Instruction *inst = entry.first;
-    int depth = entry.second;
+  for (auto entry=AddDepthVec.rbegin(); entry!=AddDepthVec.rend(); ++entry) {
+    Instruction *inst = (*entry).first;
+    int depth = (*entry).second;
     outs() << "Depth: " << depth << " | " << inst->getName() << " | ";
     if (AddToSumOps.count(inst)) {
       for (auto &val : AddToSumOps[inst]) {
