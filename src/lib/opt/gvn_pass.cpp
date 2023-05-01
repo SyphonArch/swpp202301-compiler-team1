@@ -14,6 +14,7 @@ namespace sc::opt::gvn_pass {
 PreservedAnalyses
 GVNpass::run(Function &F, FunctionAnalysisManager &FAM) {
 
+    //add existing GVN pass
     GVNPass().run(F, FAM);  
 
     return PreservedAnalyses::none(); // or all();
