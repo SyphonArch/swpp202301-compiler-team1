@@ -14,6 +14,9 @@ namespace sc::opt::add_to_sum {
 PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
   outs() << "-- [Begin add-to-sum Pass] --\n";
 
+  /* ===== PHASE 1 ============================
+   * Calculate the Depth of Add instructions */
+
   DenseMap<Instruction *, int> AddDepthMap;
   // Define a recursive function to compute the depth of an Instruction
   function<int(Value *)> computeDepth = [&](Value *val) {
@@ -50,6 +53,9 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     }
   }
 
+  /* ===== PHASE 2 ============================
+   * Get Ready to Traverse Add instructions, in Reverse Depth Order */
+
   // Sort the values in increasing order of depth
   vector<pair<Instruction *, int>> AddDepthVec(AddDepthMap.begin(),
                                                AddDepthMap.end());
@@ -61,6 +67,10 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
   set<Instruction *> toDeleteSet;
   vector<Instruction *> toDeleteVec;
 
+  /* ===== PHASE 3 ============================
+   * Traverse Add instructions, Creating Sum Operand Information */
+
+  // Loop over all Add instructions, in reverse depth order
   for (auto &entry : AddDepthVec) {
     Instruction *inst = entry.first;
     int depth = entry.second;
@@ -88,6 +98,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
                 // parent add will be merged
                 toDeleteSet.insert(op_inst);
                 toDeleteVec.push_back(op_inst);
+                // Add parent's operands to current instructions operands
                 for (auto &val : AddToSumOps[op_inst]) {
                   AddToSumOps[inst].push_back(val);
                 }
@@ -103,6 +114,9 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     }
   }
 
+  /* ===== PHASE 4 ============================
+   * Change Add Instructions into Sum Instructions */
+
   for (auto entry = AddDepthVec.rbegin(); entry != AddDepthVec.rend();
        ++entry) {
     Instruction *inst = (*entry).first;
@@ -112,8 +126,8 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
       for (auto &val : AddToSumOps[inst]) {
         outs() << val->getName() << ", ";
       }
-      outs() << '\n';
     }
+    outs() << '\n';
 
     if (!toDeleteSet.count(inst) && AddToSumOps[inst].size() >= 3) {
       IRBuilder<> Builder(inst);
@@ -152,11 +166,15 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
       Call1->setName(prev_inst_name);
     }
   }
+
+  /* ===== PHASE 5 ============================
+   * Remove Redundant Instructions, in Reverse Order */
+
   for (auto inst = toDeleteVec.rbegin(); inst != toDeleteVec.rend(); ++inst) {
     (*inst)->eraseFromParent();
   }
 
-  return PreservedAnalyses::none(); // or all();
+  return PreservedAnalyses::none();
 }
 
 extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
