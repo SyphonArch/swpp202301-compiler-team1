@@ -87,6 +87,7 @@ endfunction()
 # /================= ADD OPT PASSES BELOW ================/
 
 add_opt_pass(DemoPropagateIntegerEquality demopropinteq.cpp)
+add_opt_pass(AddToSum add_to_sum.cpp)
 
 # /================== DO NOT EDIT BELOW ==================/
 add_library(SCOpt ${SRC_DIR}/lib/opt.cpp)
