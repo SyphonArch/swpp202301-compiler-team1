@@ -1,3 +1,9 @@
+; Arithmetic Pass test 2
+; this test includes
+; change add %a, const 1 ~ 4
+; add %a %a -> mul %a 2
+
+
 ; CHECK-LABEL: @main(i32 %a, i64 %b)
 
 ; CHECK-NEXT:  [[A1:%.*]] = call i32 @incr_i32(i32 %a)

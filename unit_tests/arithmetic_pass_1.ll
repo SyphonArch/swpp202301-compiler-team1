@@ -1,3 +1,9 @@
+; Arithmetic Pass test 1
+; this test includes
+; add %a %a -> mul %a 2
+; shl %x c -> mul %x (2^c)
+; ashr %x c -> sdiv %x (2^c)
+; lshr %x c -> udiv %x (2^c)
 
 define i32 @main(i32 %a, i32 %b) {
 ; CHECK-LABEL: @main(i32 %a, i32 %b)

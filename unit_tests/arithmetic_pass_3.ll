@@ -1,3 +1,8 @@
+; Arithmetic Pass test 3
+; this test includes
+; change add %a, const 1 ~ 4
+; test for types i8, i16, i32, i64
+
 ; CHECK-LABEL: @main(i8 %a, i16 %b, i32 %c, i64 %d)
 ; CHECK-NEXT:  [[A1:%.*]] = call i8 @incr_i8(i8 %a)
 ; CHECK-NEXT:  [[B1:%.*]] = call i16 @incr_i16(i16 %b)

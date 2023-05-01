@@ -24,9 +24,6 @@ using namespace std;
 namespace sc::opt::arithmetic_pass {
 PreservedAnalyses
 ArithmeticPass::run(Function &F, FunctionAnalysisManager &FAM) {
-  DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-  LLVMContext &Ctx = F.getContext();
-  vector<Value *> ptrOperand;
   for (BasicBlock &BB : F) {
 
     for(auto i = BB.begin(), en = BB.end(); i!=en;){
@@ -84,11 +81,15 @@ ArithmeticPass::run(Function &F, FunctionAnalysisManager &FAM) {
         Value *Op0 = I.getOperand(0);
         Value *Op1 = I.getOperand(1);
         ConstantInt *C = dyn_cast<ConstantInt>(Op1);
+        
+        // check if the const is 1 to 4
         if (C && (C->getValue() == 1 || C->getValue() == 2 || C->getValue() == 3 || C->getValue() == 4)) {
           LLVMContext &Ctx = I.getContext();
           FunctionType *FuncType;
           Module *M = I.getModule();
           FunctionCallee FC;
+
+          // check the type of the operand
           if(Op0->getType()->isIntegerTy(1)) {
             Type *Int1Ty = Type::getInt1Ty(Ctx);
             FuncType = FunctionType::get(Int1Ty, {Int1Ty}, false);
@@ -112,6 +113,8 @@ ArithmeticPass::run(Function &F, FunctionAnalysisManager &FAM) {
           } else {
             continue;
           }
+
+          // check the const
           if(C->getValue() == 1) {
             Value *Arg = Op0;
             Value *Call1 = Builder.CreateCall(FC, Arg);
@@ -127,7 +130,7 @@ ArithmeticPass::run(Function &F, FunctionAnalysisManager &FAM) {
             Value *Call2 = Builder.CreateCall(FC, Call1);
             Value *Call3 = Builder.CreateCall(FC, Call2);
             I.replaceAllUsesWith(Call3);
-          } else { // c->getvalue = 4
+          } else { 
             Value *Arg = Op0;
             Value *Call1 = Builder.CreateCall(FC, Arg);
             Value *Call2 = Builder.CreateCall(FC, Call1);
