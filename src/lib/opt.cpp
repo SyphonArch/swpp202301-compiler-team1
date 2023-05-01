@@ -6,6 +6,7 @@
 #include "print_ir.h"
 
 #include "./opt/demopropinteq.cpp"
+#include "./opt/arithmetic_pass.h"
 
 using namespace std::string_literals;
 
@@ -28,6 +29,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
 
     // Add function-level opt passes below
     FPM.addPass(DemoPropagateIntegerEquality());
+    FPM.addPass(arithmetic_pass::ArithmeticPass());
 
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
     // Add CGSCC-level opt passes below

@@ -1,2 +1,3 @@
 Source Name,Class Name,Pass Name,Unit Test Prefix
 demopropinteq,DemoPropagateIntegerEquality,demo-prop-int-eq,demopropinteq
+arithmetic_pass,ArithmeticPass,arithmetic-pass,arithmetic_pass
