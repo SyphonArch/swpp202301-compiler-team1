@@ -87,6 +87,7 @@ endfunction()
 # /================= ADD OPT PASSES BELOW ================/
 
 add_opt_pass(DemoPropagateIntegerEquality demopropinteq.cpp)
+add_opt_pass(BiasToFalseBranch bias_to_false_branch.cpp)
 
 # /================== DO NOT EDIT BELOW ==================/
 add_library(SCOpt ${SRC_DIR}/lib/opt.cpp)

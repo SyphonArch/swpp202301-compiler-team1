@@ -5,14 +5,15 @@
 
 #include "print_ir.h"
 
-#include "./opt/demopropinteq.cpp"
+#include "./opt/bias_to_false_branch.h"
+#include "./opt/demopropinteq.h"
 
 using namespace std::string_literals;
 
 namespace sc::opt {
 OptInternalError::OptInternalError(const std::exception &__e) noexcept {
-    message = "exception thrown from opt\n"s + __e.what();
-  }
+  message = "exception thrown from opt\n"s + __e.what();
+}
 
 Result<std::unique_ptr<llvm::Module>, OptInternalError>
 optimizeIR(std::unique_ptr<llvm::Module> &&__M,
@@ -27,7 +28,8 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add loop-level opt passes below
 
     // Add function-level opt passes below
-    FPM.addPass(DemoPropagateIntegerEquality());
+    FPM.addPass(demo::DemoPropagateIntegerEquality());
+    FPM.addPass(bias_to_false_branch::BiasToFalseBranch());
 
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
     // Add CGSCC-level opt passes below
