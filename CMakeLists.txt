@@ -86,6 +86,7 @@ add_test(NAME unit_tests COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests.
 # /================= ADD OPT PASSES BELOW ================/
 
 add_opt_pass(DemoPropagateIntegerEquality demopropinteq.cpp)
+add_opt_pass(GVNpass gvn_pass.cpp)
 
 # /================== DO NOT EDIT BELOW ==================/
 add_library(SCOpt ${SRC_DIR}/lib/opt.cpp)
