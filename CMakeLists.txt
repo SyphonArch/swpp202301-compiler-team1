@@ -9,7 +9,7 @@ set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
 # Specify LLVM directory to use
-# set(LLVM_ROOT )
+ set(LLVM_ROOT ~/llvm-swpp)
 find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVM in: ${LLVM_BINARY_DIR}")
@@ -87,6 +87,7 @@ endfunction()
 # /================= ADD OPT PASSES BELOW ================/
 
 add_opt_pass(DemoPropagateIntegerEquality demopropinteq.cpp)
+add_opt_pass(UseAsyncLoad use_async_load.cpp)
 
 # /================== DO NOT EDIT BELOW ==================/
 add_library(SCOpt ${SRC_DIR}/lib/opt.cpp)
