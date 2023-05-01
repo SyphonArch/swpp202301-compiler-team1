@@ -72,7 +72,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
       auto *op2_inst = dyn_cast<Instruction>(inst->getOperand(1));
       for (int i = 0; i < 2; ++i) {
         Instruction *op_inst = i == 0 ? op1_inst : op2_inst;
-        if (op_inst == nullptr) { // non-add
+        if (op_inst == nullptr || op_inst->getOpcode() != Instruction::Add) { // non-add
           AddToSumOps[inst].push_back(inst->getOperand(i));
         }
       }
