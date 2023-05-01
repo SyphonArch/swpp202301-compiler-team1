@@ -16,6 +16,16 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Build Alive2
+      run: |
+        git clone https://github.com/snu-sf-class/swpp202301.git
+        cd swpp202301/practice
+        git clone https://github.com/AliveToolkit/alive2.git
+        cd alive2
+        git checkout 9ca7092c21e69b4e71c91b9280cff920234410dc
+        git apply ../../project/alive2-swpp-intrinsics.patch
+        ./build.sh
+
     - name: Configure CMake
       run: cmake -GNinja -Bbuild
       

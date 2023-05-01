@@ -32,13 +32,20 @@ for entry in entries:
         # Run opt with the pass shared library
         opt_cmd = [f"{llvm_path}/bin/opt", f"-load-pass-plugin=./build/{pass_lib}", f"-passes={passname}",
                    ll_path, "-S", "-o", f"./tmp/out.{ll_file}"]
-        subprocess.run(opt_cmd, check=True)
+        subprocess.run(opt_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # Run filecheck on the output
         filecheck_cmd = [f"{llvm_path}/bin/FileCheck", ll_path]
         with open(f'./tmp/out.{ll_file}', 'r') as f:
             result = subprocess.run(filecheck_cmd, stdin=f, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
+        if result.returncode != 0:
+            print(result.stderr.decode("utf-8"))
+            failures = True
+
+        alive2_cmd = [f"./swpp202301/practice/alive2", ll_path, f"./tmp/out.{ll_file}"]
+        result = subprocess.run(filecheck_cmd, stdin=f, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
         if result.returncode != 0:
             print(result.stderr.decode("utf-8"))
             failures = True
