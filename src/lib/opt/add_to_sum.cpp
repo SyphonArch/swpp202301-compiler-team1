@@ -61,7 +61,6 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
   set<Instruction *> toDeleteSet;
   vector<Instruction *> toDeleteVec;
 
-
   for (auto &entry : AddDepthVec) {
     Instruction *inst = entry.first;
     int depth = entry.second;
@@ -71,28 +70,19 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     } else { // At least one operand is an add!
       auto *op1_inst = dyn_cast<Instruction>(inst->getOperand(0));
       auto *op2_inst = dyn_cast<Instruction>(inst->getOperand(1));
-      bool inapt = false;
       for (int i = 0; i < 2; ++i) {
-        Instruction *op_instr = i == 0 ? op1_inst : op2_inst;
-        if (op_instr && op_instr->getOpcode() == Instruction::Add) {
-          if (!op_instr->hasOneUse()) {
-            inapt = true;
-          }
+        Instruction *op_inst = i == 0 ? op1_inst : op2_inst;
+        if (op_inst == nullptr) { // non-add
+          AddToSumOps[inst].push_back(inst->getOperand(i));
         }
       }
-      if (!inapt) { // Both operands are either non-add or one-use adds
-        for (int i = 0; i < 2; ++i) {
-          Instruction *op_inst = i == 0 ? op1_inst : op2_inst;
-          if (op_inst == nullptr) { // non-add
-            AddToSumOps[inst].push_back(inst->getOperand(i));
-          }
-        }
-        for (int i = 0; i < 2; ++i) {
-          Instruction *op_inst = i == 0 ? op1_inst : op2_inst;
-          if (op_inst) {                        // adds
-            if (AddToSumOps[op_inst].empty()) { // non-marked add
-              AddToSumOps[inst].push_back(op_inst);
-            } else { // marked add
+      for (int i = 0; i < 2; ++i) {
+        Instruction *op_inst = i == 0 ? op1_inst : op2_inst;
+        if (op_inst) {                        // adds
+          if (AddToSumOps[op_inst].empty()) { // non-marked add
+            AddToSumOps[inst].push_back(op_inst);
+          } else { // marked add
+            if (op_inst->hasOneUse()) {
               int max_ops_to_add = min(7, (int)(8 - AddToSumOps[inst].size()));
               if (AddToSumOps[op_inst].size() <= max_ops_to_add) {
                 // parent add will be merged
@@ -104,6 +94,8 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
               } else {
                 AddToSumOps[inst].push_back(op_inst);
               }
+            } else {
+              AddToSumOps[inst].push_back(op_inst);
             }
           }
         }
@@ -111,7 +103,8 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     }
   }
 
-  for (auto entry=AddDepthVec.rbegin(); entry!=AddDepthVec.rend(); ++entry) {
+  for (auto entry = AddDepthVec.rbegin(); entry != AddDepthVec.rend();
+       ++entry) {
     Instruction *inst = (*entry).first;
     int depth = (*entry).second;
     outs() << "Depth: " << depth << " | " << inst->getName() << " | ";
@@ -159,7 +152,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
       Call1->setName(prev_inst_name);
     }
   }
-  for (auto inst=toDeleteVec.rbegin(); inst != toDeleteVec.rend(); ++inst) {
+  for (auto inst = toDeleteVec.rbegin(); inst != toDeleteVec.rend(); ++inst) {
     (*inst)->eraseFromParent();
   }
 
