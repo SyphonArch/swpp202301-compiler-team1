@@ -5,7 +5,6 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
 using namespace std;
@@ -83,9 +82,10 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
       auto *op2_inst = dyn_cast<Instruction>(inst->getOperand(1));
 
       // Add non-add operands first
-      for (int i = 0; i < 2; ++i) { 
+      for (int i = 0; i < 2; ++i) {
         Instruction *op_inst = i == 0 ? op1_inst : op2_inst;
-        if (op_inst == nullptr || op_inst->getOpcode() != Instruction::Add) { // non-add
+        if (op_inst == nullptr ||
+            op_inst->getOpcode() != Instruction::Add) { // non-add
           AddToSumOps[inst].push_back(inst->getOperand(i));
         }
       }
@@ -96,7 +96,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
           if (AddToSumOps[op_inst].empty()) { // non-marked `add` operand
             AddToSumOps[inst].push_back(op_inst);
             continue;
-          } 
+          }
           if (!op_inst->hasOneUse()) { // non-one-use `add` operand
             AddToSumOps[inst].push_back(op_inst);
             continue;
@@ -104,7 +104,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
           // Calculate how many more `sum` operands can be used
           int max_ops_to_add = min(7, (int)(8 - AddToSumOps[inst].size()));
           // too many operands for `sum`
-          if (AddToSumOps[op_inst].size() > max_ops_to_add) { 
+          if (AddToSumOps[op_inst].size() > max_ops_to_add) {
             AddToSumOps[inst].push_back(op_inst);
             continue;
           }
@@ -123,7 +123,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
 
   /* ===== PHASE 4 ============================
    * Change Add Instructions into Sum Instructions */
-  
+
   // It is critical that traversal is in decreasing order of depth,
   // because only so does `replaceAllUsesWith` correctly replace all occurrences
   // of the Instruction. This is because replacing `add` instructions into
@@ -203,4 +203,3 @@ extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
           }};
 }
 } // namespace sc::opt::add_to_sum
-
