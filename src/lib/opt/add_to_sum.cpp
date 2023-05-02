@@ -112,7 +112,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
           // mark operands for deletion
           toDeleteSet.insert(op_inst);
           toDeleteVec.push_back(op_inst);
-          // add operands's operands to current instruction's operands
+          // add operands' operands to current instruction's operands
           for (auto &val : AddToSumOps[op_inst]) {
             AddToSumOps[inst].push_back(val);
           }
@@ -125,7 +125,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
    * Change Add Instructions into Sum Instructions */
   
   // It is critical that traversal is in decreasing order of depth,
-  // because only so does `replaceAllUsesWith` correctly replace all occurances
+  // because only so does `replaceAllUsesWith` correctly replace all occurrences
   // of the Instruction. This is because replacing `add` instructions into
   // `sum` instructions introduces new usages of lower-depth `add` Instructions.
   for (auto entry = AddDepthVec.rbegin(); entry != AddDepthVec.rend();
