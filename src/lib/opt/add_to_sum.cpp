@@ -54,7 +54,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
   }
 
   /* ===== PHASE 2 ============================
-   * Get Ready to Traverse Add instructions, in Reverse Depth Order */
+   * Get Ready to Traverse Add instructions */
 
   // Sort the values in increasing order of depth
   vector<pair<Instruction *, int>> AddDepthVec(AddDepthMap.begin(),
@@ -70,7 +70,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
   /* ===== PHASE 3 ============================
    * Traverse Add instructions, Creating Sum Operand Information */
 
-  // Loop over all Add instructions, in reverse depth order
+  // Loop over all Add instructions, in increasing depth order
   for (auto &entry : AddDepthVec) {
     Instruction *inst = entry.first;
     int depth = entry.second;
@@ -94,11 +94,11 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
           } else { // marked add
             if (op_inst->hasOneUse()) {
               int max_ops_to_add = min(7, (int)(8 - AddToSumOps[inst].size()));
-              if (AddToSumOps[op_inst].size() <= max_ops_to_add) {
-                // parent add will be merged
+              if (AddToSumOps[op_inst].size() <= max_ops_to_add) { // merge possible
+                // mark operands for deletion
                 toDeleteSet.insert(op_inst);
                 toDeleteVec.push_back(op_inst);
-                // Add parent's operands to current instructions operands
+                // add operands's operands to current instruction's operands
                 for (auto &val : AddToSumOps[op_inst]) {
                   AddToSumOps[inst].push_back(val);
                 }
@@ -116,7 +116,11 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
 
   /* ===== PHASE 4 ============================
    * Change Add Instructions into Sum Instructions */
-
+  
+  // It is critical that traversal is in decreasing order of depth,
+  // because only so does `replaceAllUsesWith` correctly replace all occurances
+  // of the Instruction. This is because replacing `add` instructions into
+  // `sum` instructions introduces new usages of lower-depth `add` Instructions.
   for (auto entry = AddDepthVec.rbegin(); entry != AddDepthVec.rend();
        ++entry) {
     Instruction *inst = (*entry).first;
@@ -192,3 +196,4 @@ extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
           }};
 }
 } // namespace sc::opt::add_to_sum
+
