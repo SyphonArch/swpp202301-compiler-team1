@@ -19,6 +19,7 @@ define i64 @add_ten(i64 %a, i64 %b, i64 %c, i64 %d, i64 %e, i64 %f, i64 %g, i64 
   ret i64 %sum9
 }
 
+; Should only use one sum, followed by an add.
 define i64 @add_nine(i64 %a, i64 %b, i64 %c, i64 %d, i64 %e, i64 %f, i64 %g, i64 %h, i64 %i) {
 ;CHECK-LABEL: @add_nine(i64 %a, i64 %b, i64 %c, i64 %d, i64 %e, i64 %f, i64 %g, i64 %h, i64 %i)
 ;CHECK-NEXT:  %sum7 = call i64 @int_sum_i64(i64 %h, i64 %g, i64 %f, i64 %e, i64 %d, i64 %c, i64 %a, i64 %b)
