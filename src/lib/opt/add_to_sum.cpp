@@ -78,36 +78,43 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
       AddToSumOps[inst].push_back(inst->getOperand(0));
       AddToSumOps[inst].push_back(inst->getOperand(1));
     } else { // At least one operand is an add!
+      assert(depth > 1);
       auto *op1_inst = dyn_cast<Instruction>(inst->getOperand(0));
       auto *op2_inst = dyn_cast<Instruction>(inst->getOperand(1));
-      for (int i = 0; i < 2; ++i) {
+
+      // Add non-add operands first
+      for (int i = 0; i < 2; ++i) { 
         Instruction *op_inst = i == 0 ? op1_inst : op2_inst;
         if (op_inst == nullptr || op_inst->getOpcode() != Instruction::Add) { // non-add
           AddToSumOps[inst].push_back(inst->getOperand(i));
         }
       }
+      // Add `add` operands
       for (int i = 0; i < 2; ++i) {
         Instruction *op_inst = i == 0 ? op1_inst : op2_inst;
-        if (op_inst) {                        // adds
-          if (AddToSumOps[op_inst].empty()) { // non-marked add
+        if (op_inst && op_inst->getOpcode() == Instruction::Add) { // adds
+          if (AddToSumOps[op_inst].empty()) { // non-marked `add` operand
             AddToSumOps[inst].push_back(op_inst);
-          } else { // marked add
-            if (op_inst->hasOneUse()) {
-              int max_ops_to_add = min(7, (int)(8 - AddToSumOps[inst].size()));
-              if (AddToSumOps[op_inst].size() <= max_ops_to_add) { // merge possible
-                // mark operands for deletion
-                toDeleteSet.insert(op_inst);
-                toDeleteVec.push_back(op_inst);
-                // add operands's operands to current instruction's operands
-                for (auto &val : AddToSumOps[op_inst]) {
-                  AddToSumOps[inst].push_back(val);
-                }
-              } else {
-                AddToSumOps[inst].push_back(op_inst);
-              }
-            } else {
-              AddToSumOps[inst].push_back(op_inst);
-            }
+            continue;
+          } 
+          if (!op_inst->hasOneUse()) { // non-one-use `add` operand
+            AddToSumOps[inst].push_back(op_inst);
+            continue;
+          }
+          // Calculate how many more `sum` operands can be used
+          int max_ops_to_add = min(7, (int)(8 - AddToSumOps[inst].size()));
+          // too many operands for `sum`
+          if (AddToSumOps[op_inst].size() > max_ops_to_add) { 
+            AddToSumOps[inst].push_back(op_inst);
+            continue;
+          }
+          // Operands can be merged now!
+          // mark operands for deletion
+          toDeleteSet.insert(op_inst);
+          toDeleteVec.push_back(op_inst);
+          // add operands's operands to current instruction's operands
+          for (auto &val : AddToSumOps[op_inst]) {
+            AddToSumOps[inst].push_back(val);
           }
         }
       }
