@@ -1,4 +1,5 @@
 ; RUN: opt < %s -load-pass-plugin=./build/libBiasToFalseBranch.so -passes=bias-to-false-branch -S | FileCheck %s
+; check BranchProbabilityAnalysis correctly computes branch probability
 
 declare i32 @f()
 declare i32 @g()

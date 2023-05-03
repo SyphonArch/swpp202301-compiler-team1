@@ -1,5 +1,5 @@
 ; RUN: opt < %s -load-pass-plugin=./build/libBiasToFalseBranch.so -passes=bias-to-false-branch -S | FileCheck %s
-; check basic functionality of the pass
+; check side effect for inverting icmp
 
 declare void @f(i1)
 
