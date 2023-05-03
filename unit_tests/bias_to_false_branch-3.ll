@@ -7,15 +7,15 @@ declare i32 @g()
 define i32 @cmp_ptr(ptr %0, ptr %1) {
 ; CHECK-LABEL: @cmp_ptr(
 ; CHECK-NEXT:    [[COND:%.*]] = icmp eq ptr [[TMP0:%.*]], [[TMP1:%.*]]
-; CHECK-NEXT:    br i1 [[COND]], label [[FALSE_BB:%.*]], label [[TRUE_BB:%.*]]
+; CHECK-NEXT:    br i1 [[COND]], label %false_bb, label %true_bb
 ; CHECK:       true_bb:
 ; CHECK-NEXT:    [[X:%.*]] = call i32 @f()
-; CHECK-NEXT:    br label [[EXIT:%.*]]
+; CHECK-NEXT:    br label %exit
 ; CHECK:       false_bb:
 ; CHECK-NEXT:    [[Y:%.*]] = call i32 @g()
-; CHECK-NEXT:    br label [[EXIT]]
+; CHECK-NEXT:    br label %exit
 ; CHECK:       exit:
-; CHECK-NEXT:    [[Z:%.*]] = phi i32 [ [[X]], [[TRUE_BB]] ], [ [[Y]], [[FALSE_BB]] ]
+; CHECK-NEXT:    [[Z:%.*]] = phi i32 [ [[X]], %true_bb ], [ [[Y]], %false_bb ]
 ; CHECK-NEXT:    ret i32 [[Z]]
 ;
   %cond = icmp ne ptr %0, %1
@@ -38,15 +38,15 @@ exit:                                                ; preds = %false_bb, %true_
 define i32 @cmp_int(i32 %0, i32 %1) {
 ; CHECK-LABEL: @cmp_int(
 ; CHECK-NEXT:    [[COND:%.*]] = icmp ne i32 [[TMP0:%.*]], [[TMP1:%.*]]
-; CHECK-NEXT:    br i1 [[COND]], label [[TRUE_BB:%.*]], label [[FALSE_BB:%.*]]
+; CHECK-NEXT:    br i1 [[COND]], label %true_bb, label %false_bb
 ; CHECK:       true_bb:
 ; CHECK-NEXT:    [[X:%.*]] = call i32 @f()
-; CHECK-NEXT:    br label [[EXIT:%.*]]
+; CHECK-NEXT:    br label %exit
 ; CHECK:       false_bb:
 ; CHECK-NEXT:    [[Y:%.*]] = call i32 @g()
-; CHECK-NEXT:    br label [[EXIT]]
+; CHECK-NEXT:    br label %exit
 ; CHECK:       exit:
-; CHECK-NEXT:    [[Z:%.*]] = phi i32 [ [[X]], [[TRUE_BB]] ], [ [[Y]], [[FALSE_BB]] ]
+; CHECK-NEXT:    [[Z:%.*]] = phi i32 [ [[X]], %true_bb ], [ [[Y]], %false_bb ]
 ; CHECK-NEXT:    ret i32 [[Z]]
 ;
   %cond = icmp ne i32 %0, %1

@@ -1,4 +1,5 @@
 ; RUN: opt < %s -load-pass-plugin=./build/libBiasToFalseBranch.so -passes=bias-to-false-branch -S | FileCheck %s
+; check basic functionality of the pass
 
 declare void @f(i1)
 
@@ -6,14 +7,14 @@ declare void @f(i1)
 define i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    br label [[WHILE_COND:%.*]]
+; CHECK-NEXT:    br label %while.cond
 ; CHECK:       while.cond:
-; CHECK-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[ADD:%.*]], [[WHILE_BODY:%.*]] ]
+; CHECK-NEXT:    [[I_0:%.*]] = phi i32 [ 0, %entry ], [ [[ADD:%.*]], %while.body ]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i32 [[I_0]], 10
-; CHECK-NEXT:    br i1 [[CMP]], label [[WHILE_BODY]], label [[WHILE_END:%.*]]
+; CHECK-NEXT:    br i1 [[CMP]], label %while.body, label %while.end
 ; CHECK:       while.body:
 ; CHECK-NEXT:    [[ADD]] = add nsw i32 [[I_0]], 1
-; CHECK-NEXT:    br label [[WHILE_COND]]
+; CHECK-NEXT:    br label %while.cond
 ; CHECK:       while.end:
 ; CHECK-NEXT:    call void @f(i1 [[CMP]])
 ; CHECK-NEXT:    ret i32 [[I_0]]
