@@ -2,9 +2,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Transforms/Scalar/GVN.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Dominators.h"
 #include "gvn_pass.h"
 
 using namespace llvm;
@@ -15,9 +13,9 @@ PreservedAnalyses
 GVNpass::run(Function &F, FunctionAnalysisManager &FAM) {
 
     //add existing GVN pass
-    GVNPass().run(F, FAM);  
+    PreservedAnalyses PA = GVNPass().run(F, FAM);  
 
-    return PreservedAnalyses::none(); // or all();
+    return PA;
 };
 
 extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
