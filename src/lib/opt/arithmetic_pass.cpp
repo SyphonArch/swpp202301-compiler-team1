@@ -1,17 +1,11 @@
-#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/PatternMatch.h"
-#include <vector>
-#include <algorithm>
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Instructions.h"
@@ -22,14 +16,71 @@ using namespace llvm;
 using namespace std;
 
 namespace sc::opt::arithmetic_pass {
-PreservedAnalyses
-ArithmeticPass::run(Function &F, FunctionAnalysisManager &FAM) {
-  for (BasicBlock &BB : F) {
+PreservedAnalyses ArithmeticPass::run(Function &F, FunctionAnalysisManager &FAM) {
 
+  // first preprocess
+  // change add const %a -> add %a const
+  for (BasicBlock &BB : F) {
     for(auto i = BB.begin(), en = BB.end(); i!=en;){
       auto temp = i++;
       Instruction &I = *temp;
-
+      if (I.getOpcode() == Instruction::Add) {
+        Value *Op0 = I.getOperand(0);
+        Value *Op1 = I.getOperand(1);
+        ConstantInt *C0 = dyn_cast<ConstantInt>(Op0);
+        ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
+        if (C0 && !C1) { // Check if operands are equal
+          Instruction*  NewInst = BinaryOperator::Create(Instruction::Add, Op1, Op0);
+          ReplaceInstWithInst((&I), NewInst);
+        }
+      }
+    }
+  }
+  // second preprocess
+  // change add %a (-1 ~ -4) -> sub %a (1 ~ 4)
+  // change sub %a (-1 ~ -4) -> add %a (1 ~ 4)
+  
+  for (BasicBlock &BB : F) {
+    for(auto i = BB.begin(), en = BB.end(); i!=en;){
+      auto temp = i++;
+      Instruction &I = *temp;
+      if (I.getOpcode() == Instruction::Add) {
+        Value *Op0 = I.getOperand(0);
+        Value *Op1 = I.getOperand(1);
+        ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
+        // getValue() cannot be compared, only == is allowed
+        outs() << "negative num!!!\n";
+        if(C1 && ((C1->getSExtValue() == -1) || (C1->getSExtValue() == -2) || (C1->getSExtValue() == -3) || (C1->getSExtValue() == -4))) {
+          outs() << "negative num!!! in add!!!\n";
+          Instruction*  NewInst;
+          if((C1->getSExtValue() == -1))      NewInst = BinaryOperator::Create(Instruction::Sub, Op0, ConstantInt::get(Op0->getType(),1));
+          else if((C1->getSExtValue() == -2)) NewInst = BinaryOperator::Create(Instruction::Sub, Op0, ConstantInt::get(Op0->getType(),2));
+          else if((C1->getSExtValue() == -3)) NewInst = BinaryOperator::Create(Instruction::Sub, Op0, ConstantInt::get(Op0->getType(),3));
+          else                                NewInst = BinaryOperator::Create(Instruction::Sub, Op0, ConstantInt::get(Op0->getType(),4));
+          ReplaceInstWithInst((&I), NewInst);
+        }
+      }
+      if (I.getOpcode() == Instruction::Sub) {
+        Value *Op0 = I.getOperand(0);
+        Value *Op1 = I.getOperand(1);
+        ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
+        if(C1 && ((C1->getSExtValue() == -1) || (C1->getSExtValue() == -2) || (C1->getSExtValue() == -3) || (C1->getSExtValue() == -4))) {
+          outs() << "negative num!!! in sub!!\n";
+          Instruction*  NewInst;
+          if((C1->getSExtValue() == -1))      NewInst = BinaryOperator::Create(Instruction::Add, Op0, ConstantInt::get(Op0->getType(),1));
+          else if((C1->getSExtValue() == -2)) NewInst = BinaryOperator::Create(Instruction::Add, Op0, ConstantInt::get(Op0->getType(),2));
+          else if((C1->getSExtValue() == -3)) NewInst = BinaryOperator::Create(Instruction::Add, Op0, ConstantInt::get(Op0->getType(),3));
+          else                                NewInst = BinaryOperator::Create(Instruction::Add, Op0, ConstantInt::get(Op0->getType(),4));
+          ReplaceInstWithInst((&I), NewInst);
+        }
+      }
+    }
+  }
+  
+  for (BasicBlock &BB : F) {
+    for(auto i = BB.begin(), en = BB.end(); i!=en;){
+      auto temp = i++;
+      Instruction &I = *temp;
 
       // change add %a %a -> mul %a 2
       if (I.getOpcode() == Instruction::Add) {
@@ -40,7 +91,17 @@ ArithmeticPass::run(Function &F, FunctionAnalysisManager &FAM) {
           ReplaceInstWithInst((&I), NewInst);
         }
       }
-
+      
+      // change sub 0 %a -> mul %a -1
+      if (I.getOpcode() == Instruction::Sub) {
+        Value *Op0 = I.getOperand(0);
+        Value *Op1 = I.getOperand(1);
+        ConstantInt *C = dyn_cast<ConstantInt>(Op0);
+        if (C && (C->getValue() == 0)) {
+          Instruction*  NewInst = BinaryOperator::Create(Instruction::Mul, Op1, ConstantInt::get(Op1->getType(),-1));
+          ReplaceInstWithInst((&I), NewInst);
+        }
+      }
 
       // change shl %x c -> mul %x (2^c)
       if (I.getOpcode() == Instruction::Shl) {
@@ -51,7 +112,6 @@ ArithmeticPass::run(Function &F, FunctionAnalysisManager &FAM) {
         ReplaceInstWithInst((&I), NewInst);
       }
 
-
       // change ashr %x c -> sdiv %x (2^c)
       if (I.getOpcode() == Instruction::AShr) {
         Value *Op0 = I.getOperand(0);
@@ -60,7 +120,6 @@ ArithmeticPass::run(Function &F, FunctionAnalysisManager &FAM) {
         Instruction*  NewInst = BinaryOperator::Create(Instruction::SDiv, Op0, ConstantInt::get(Op0->getType(),(1<<lval)));
         ReplaceInstWithInst((&I), NewInst);
       }
-
 
       // change lshr %x c -> udiv %x (2^c)
       if (I.getOpcode() == Instruction::LShr) {
@@ -71,12 +130,11 @@ ArithmeticPass::run(Function &F, FunctionAnalysisManager &FAM) {
         ReplaceInstWithInst((&I), NewInst);
       }
 
-
       // change add %a 1~4 -> call incr
       // for each type of operands -> different name of function should be called
       // for each constant being added, there are different numbers of function calls
 
-      if (I.getOpcode() == Instruction::Add) {
+      if (I.getOpcode() == Instruction::Add || I.getOpcode() == Instruction::Sub) {
         IRBuilder<> Builder(&I);
         Value *Op0 = I.getOperand(0);
         Value *Op1 = I.getOperand(1);
@@ -90,28 +148,20 @@ ArithmeticPass::run(Function &F, FunctionAnalysisManager &FAM) {
           FunctionCallee FC;
 
           // check the type of the operand
-          if(Op0->getType()->isIntegerTy(1)) {
-            Type *Int1Ty = Type::getInt1Ty(Ctx);
-            FuncType = FunctionType::get(Int1Ty, {Int1Ty}, false);
-            FC = M->getOrInsertFunction("incr_i1", FuncType);
-          } else if(Op0->getType()->isIntegerTy(8)) {
-            Type *Int8Ty = Type::getInt8Ty(Ctx);
-            FuncType = FunctionType::get(Int8Ty, {Int8Ty}, false);
-            FC = M->getOrInsertFunction("incr_i8", FuncType);
-          } else if(Op0->getType()->isIntegerTy(16)) {
-            Type *Int16Ty = Type::getInt16Ty(Ctx);
-            FuncType = FunctionType::get(Int16Ty, {Int16Ty}, false);
-            FC = M->getOrInsertFunction("incr_i16", FuncType);
-          } else if(Op0->getType()->isIntegerTy(32)) {
-            Type *Int32Ty = Type::getInt32Ty(Ctx);
-            FuncType = FunctionType::get(Int32Ty, {Int32Ty}, false);
-            FC = M->getOrInsertFunction("incr_i32", FuncType);
-          } else if(Op0->getType()->isIntegerTy(64)) {
-            Type *Int64Ty = Type::getInt64Ty(Ctx);
-            FuncType = FunctionType::get(Int64Ty, {Int64Ty}, false);
-            FC = M->getOrInsertFunction("incr_i64", FuncType);
-          } else {
-            continue;
+          if(I.getOpcode() == Instruction::Add || I.getOpcode() == Instruction::Sub) {
+            Type *intType = Op0->getType();
+            Constant *zero = ConstantInt::get(intType, 0);
+            std::string typeName;
+            llvm::raw_string_ostream typeStream(typeName);
+            intType->print(typeStream);
+            FuncType = FunctionType::get(intType, {intType}, false);
+            if(I.getOpcode() == Instruction::Add) {
+              std::string funcName = "incr_" + typeName;
+              FC = M->getOrInsertFunction(funcName, FuncType);
+            } else {
+              std::string funcName = "decr_" + typeName;
+              FC = M->getOrInsertFunction(funcName, FuncType);
+            }
           }
 
           // check the const
@@ -147,9 +197,8 @@ ArithmeticPass::run(Function &F, FunctionAnalysisManager &FAM) {
 }
 
 
-
 extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, "arithmetic-pass", LLVM_VERSION_STRING,
+  return {LLVM_PLUGIN_API_VERSION, "ArithmeticPass", LLVM_VERSION_STRING,
           [](PassBuilder &PB) {
             PB.registerPipelineParsingCallback(
                 [](StringRef Name, FunctionPassManager &FPM,
