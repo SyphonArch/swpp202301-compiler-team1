@@ -5,7 +5,7 @@
  * @file print_ir.h
  * @author SWPP TAs (swpp@sf.snu.ac.kr)
  * @brief Module to conditionally print the given LLVM IR program
- * @version 2023.1.0
+ * @version 2023.1.1
  * @date 2023-04-16
  * @copyright Copyright (c) 2022-2023 SWPP TAs
  */

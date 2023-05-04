@@ -5,14 +5,12 @@
  * @file static_error.h
  * @author SWPP TAs (swpp@sf.snu.ac.kr)
  * @brief Header-only module for statically typed exceptions
- * @version 2023.1.0
+ * @version 2023.1.1
  * @date 2023-04-16
  * @copyright Copyright (c) 2022-2023 SWPP TAs
  */
 
 #include <exception>
-#include <memory>
-#include <string>
 
 namespace static_error {
 /**
@@ -41,16 +39,16 @@ public:
   }
 
   /**
-   * @brief Move-construct an Error object
-   * @param other Error to move from
+   * @brief Copy-construct an Error object
+   * @param other Error to copy from
    */
-  Error(Error &&other) noexcept = default;
+  Error(const Error &other) = default;
 
   /**
-   * @brief Move-assign an Error object
-   * @param other Error to move from
+   * @brief Copy-assign an Error object
+   * @param other Error to copy from
    */
-  Error &operator=(Error &&other) noexcept = default;
+  Error &operator=(const Error &other) = default;
 };
 } // namespace static_error
 
