@@ -5,20 +5,30 @@ entry:
   store i32 1, ptr %ptr
   %a = load i32, ptr %ptr
   %b = add i32 %a, %a
-  %c = add i32 0, 0
-  %d = add i32 1, 1
-  %e = add i32 %b, %a
+  %c = add i32 %b, %a
+  %d = add i32 0, 0
+  %e = add i32 1, 1
+  %f = sub i32 %a, %e
+  %g = mul i32 %e, %f
+  %h = mul i32 2, 2
   ret void
 }
 
 ; CHECK: define void @f(i32 %x, i32 %y) {
-; CHECK: %ptr = alloca i32, align 4
-; CHECK: store i32 1, ptr %ptr, align 4
-; CHECK: [[VAL:%.*]] = call i32 @aload_i32(ptr %ptr)
-; CHECK: %c = add i32 0, 0
-; CHECK: %d = add i32 1, 1
-; CHECK: %b = add i32 [[VAL:%.*]], [[VAL:%.*]]
-; CHECK: %e = add i32 %b, [[VAL:%.*]]
-; CHECK: ret void
+; CHECK-NEXT: entry:
+; CHECK-NEXT: %ptr = alloca i32, align 4
+; CHECK-NEXT: store i32 1, ptr %ptr, align 4
+; CHECK-NEXT: [[VAL:%.*]] = call i32 @aload_i32(ptr %ptr)
+; CHECK-NEXT: %h = mul i32 2, 2
+; CHECK-NEXT: %e = add i32 1, 1
+; CHECK-NEXT: %d = add i32 0, 0
+; CHECK-NEXT: %b = add i32 [[VAL]], [[VAL]]
+; CHECK-NEXT: %c = add i32 %b, [[VAL]]
+; CHECK-NEXT: %f = sub i32 [[VAL]], %e
+; CHECK-NEXT: %g = mul i32 %e, %f
+; CHECK-NEXT: ret void
+; CHECK-NEXT: }
 
-declare i32 @aload_i32(i32*)
+declare i32 @aload_i32(ptr)
+
+; case 2 : single load replaced, CHECK-NEXT for cost before use

@@ -13,164 +13,164 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-
-#include "InstructionCost.h"
+#include "llvm/IR/InstrTypes.h"
+#include <string>
+#include "llvm/IR/BasicBlock.h"
 
 using namespace llvm;
 using namespace std;
 
+// not the exact cost; just the lower bound
+// especially, a load instruction is consdiered cost 1 since it could be replaced by an aload call
+// For later:   (1) Check whether all instructions not mentioned are translated into assemblies of nonzero cost.
+//              (2) For further optimization that does not rely on heuristics, exact cost of all instructions are required.
+//              (3) Cost for resolving aload is not considered.
+int getMinCost(Instruction* I){
+  unsigned int Op = I->getOpcode();
+  if(isa<SwitchInst>(I) || I->isShift() || I->isBitwiseLogicOp()){
+    return 4;
+  }
+  else if(Op == llvm::Instruction::Add || Op == llvm::Instruction::Sub || I->mayReadOrWriteMemory() && !(Op == llvm::Instruction::Load)){
+    return 5;
+  }
+  else if(auto* call = llvm::dyn_cast<llvm::CallInst>(I)){
+    llvm::Function* fun = call ->getCalledFunction();
+    assert(fun);
+    StringRef name = fun->getName();
+    int argNum = fun->getNumOperands();
+    if(name.startswith("int_sum_i") || name.equals("oracle")){
+      return 5;
+    }
+    else if(name.startswith("assert_eq_i")){
+      return 0;
+    }
+    else{
+      return 2 + argNum;
+    }
+  }
+  else{
+    return 1;
+  }
+}
+
+void replaceWithAload(Instruction& I){
+  LoadInst *loadInst = dyn_cast<LoadInst>(&I);
+  Value *loadPtr = loadInst->getPointerOperand();
+  Type *Ty = loadInst->getType();
+  IntegerType *ITy = dyn_cast<IntegerType>(Ty);
+  PointerType* PtrTy = PointerType::get(Ty, 0);
+  unsigned BitWidth = ITy->getIntegerBitWidth();
+  std::string BitWidthString = std::to_string(BitWidth);
+
+  IRBuilder<> Builder(&I);
+  LLVMContext &Ctx = I.getContext();
+  Module *M = I.getModule();
+  Value *Ptr = I.getOperand(0);
+
+  FunctionType *FuncType = FunctionType::get(ITy,{PtrTy}, false);
+  FunctionCallee FC = M->getOrInsertFunction("aload_i" + BitWidthString, FuncType);
+  Value *Call = Builder.CreateCall(FC, Ptr);
+  I.replaceAllUsesWith(Call);
+  I.eraseFromParent();
+}
+
+bool isAloadCall(Instruction &I){
+  CallInst* callInst = dyn_cast<CallInst>(&I);
+  return callInst && callInst->getCalledFunction() && callInst->getCalledFunction()->getName().startswith("aload_i");
+}
+
 namespace sc::opt::use_async_load {
 PreservedAnalyses
 UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
-    DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-   for (BasicBlock &BB : F) {
-      for (Instruction &I : BB) {
-        if (LoadInst *loadInst= dyn_cast<LoadInst>(&I)) {
-          // Get the pointerOperand of the load instruction.
-          Value *loadPtr = loadInst->getPointerOperand();
-          Instruction *priorInst = loadInst->getPrevNode();
+  DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+  for (BasicBlock &BB : F) {
+    // Part 1 : Move load instructions up
+    for (Instruction &I : BB) {
+      if (!dyn_cast<LoadInst>(&I)) continue;
+        
+      LoadInst *loadInst= dyn_cast<LoadInst>(&I);
+      Value *loadPtr = loadInst->getPointerOperand();
+      Instruction *priorLoadInst = loadInst->getPrevNode();
 
-          // Traverse the instructions upwards from the load instruction
-          // and check for dependence with each instruction.
-          while ((priorInst != &BB.front()) && priorInst) {
-            // Check whether priorInst is a store or a load instruction
-            // Question: How to optimize relative order of the load instructions?
-            if(StoreInst *priorstoreInst = dyn_cast<StoreInst>(priorInst)) break;
-            if(LoadInst *priorloadInst = dyn_cast<LoadInst>(priorInst)) break;
-            // Check whether priorInst declares loadPtr
-            if(loadPtr == priorInst) break;
-            // If no dependence found, exchange the instructions.
-            loadInst->moveBefore(priorInst);
-            priorInst = loadInst->getPrevNode();
+      // Find loadInst, starting from BB.begin(). Move up if priorLoadInst (1) is not a load / store instruction. (2) does not define loadPtr.
+      // For Later: Optimize relative order of load instructions? Currently, initial ordering of load instructions is left unchanged.
+      while (priorLoadInst) {
+        if (dyn_cast<StoreInst>(priorLoadInst) || dyn_cast<LoadInst>(priorLoadInst)) break;
+        if (loadPtr == priorLoadInst) break;
+        loadInst->moveBefore(priorLoadInst);
+        priorLoadInst = loadInst->getPrevNode();
+      }
+
+      // Part 2: Move instructions that does not use loadInst up.
+      // Find indepInst that does not use loadInst, starting from loadInst->getNextNode()
+      if (loadInst->isTerminator() || loadInst->getNextNode()->isTerminator()) continue;
+      for (auto j = loadInst->getNextNode()->getIterator(), e = BB.end(); j != e; ){
+        // j++ is requried to prevent infinite loop
+        Instruction &J = *(j++);
+        if(J.isTerminator()) break;
+        if (dyn_cast<LoadInst>(&J)) continue;
+        bool usesLoadInst = false;
+        for (const Use &Op : J.operands()){
+          if (Op.get() == loadInst) usesLoadInst = true;
+        }
+        if (usesLoadInst) continue;
+
+        Instruction *indepInst = &J;
+        Instruction *priorIndepInst = indepInst->getPrevNode();
+
+        // Move up if (1) priorIndepInst is not used in indepInst (2) priorIndepInst is not a load instruction
+        while (priorIndepInst){
+          if (dyn_cast<LoadInst>(priorIndepInst)) break;
+          bool usesPriorIndepInst = false;
+          for (const Use &Op : indepInst->operands()){
+            if (Op.get() == priorIndepInst) usesPriorIndepInst = true;
           }
-          // Traverse the instructions downwards from the beginnig of the basic block
-          // and check for instructions that uses the loadInst
-          for(Instruction &J : BB){
-            bool usesLoadInst = false;
-            for(const Use &Op : J.operands()){
-                if(Op.get() == loadInst){
-                    usesLoadInst = true;
-                }
-            }
-            // If instruction J uses loadInst, move down if possible.
-            // Further Optimization: Some unrelevant instructions could go up.
-            // Maybe implement by else to the if in line 62
-            if(usesLoadInst){
-                Instruction *nextInst = J.getNextNode();
-                Instruction *thisInst = &J;
-                while((nextInst != &BB.back()) && nextInst){
-                    bool usesThisInst = false;
-                    for(const Use &Op : nextInst->operands()){
-                        if(Op.get() == thisInst){
-                            usesThisInst = true;
-                            break;
-                        }
-                    }
-                    if(usesThisInst){
-                        break;
-                    }
-                    thisInst->moveAfter(nextInst);
-                    nextInst = thisInst->getNextNode();
-                }
-            }
-          }
+          if (usesPriorIndepInst) break;
+          indepInst->moveBefore(priorIndepInst);
+          priorIndepInst = indepInst->getPrevNode();
         }
       }
-      // replace Load with Aload
-      // if n loads -> replace top n-1 loads
-      // if single load -> replace if cost > 5 before use
-      // Further Optimization: ?
-      //Assume that unused loads are removed in GVN pass.
-      bool isLoadAlone = true;
-      bool replaceWithAload;
-      for(auto i = BB.begin(), e = BB.end(); i != e;){
-        auto temp = i++;
-        Instruction &I = *temp;
-        replaceWithAload = false;
-        if(LoadInst *loadInst = dyn_cast<LoadInst>(&I)){
-          if(isLoadAlone){
-            if(LoadInst *nextInst = dyn_cast<LoadInst>(loadInst->getNextNode())){
-              replaceWithAload = true;
-            }
-            else{
-              // first load instruction (cost 20) is added
-              int cost = -20;
-              bool isUsed = false;
-              for (BasicBlock::iterator It = I.getIterator(), E = BB.end(); It != E; ++It) {
-                for(const Use &Op : It->operands()){
-                  if(Op.get() == loadInst){
-                    isUsed = true;
-                    break;
-                  }
-                }
-                if(isUsed) break;
-                cost += getStrangeCost(dyn_cast<Instruction>(It));
-              }
-              if(cost >= 5){
-                replaceWithAload = true;
-              }
-            }
-          }
-          else if(LoadInst *nextInst = dyn_cast<LoadInst>(loadInst->getNextNode())){
-            replaceWithAload = true;
-          }
-        }
-        else{
-            isLoadAlone = true;
-        }
-        if(replaceWithAload){
-          LoadInst *loadInst = dyn_cast<LoadInst>(&I);
-          Value *loadPtr = loadInst->getPointerOperand();
-          Type *Ty = loadInst->getType();
-          IntegerType *ITy = dyn_cast<IntegerType>(Ty);
-          unsigned BitWidth = ITy->getIntegerBitWidth();
-          IRBuilder<> Builder(&I);
-          LLVMContext &Ctx = I.getContext();
-          Module *M = I.getModule();
-          Value *Ptr = I.getOperand(0);
+    }
 
-          if(BitWidth == 8){
-            Type *Int8Ty = Type::getInt8Ty(Ctx);
-            Type *Int8PtrTy = Type::getInt8PtrTy(Ctx);
-            FunctionType *FuncType = FunctionType::get(Int8Ty,{Int8PtrTy}, false);
-            FunctionCallee FC = M->getOrInsertFunction("aload_i8", FuncType);
-            Value *Call = Builder.CreateCall(FC, Ptr);
-            I.replaceAllUsesWith(Call);
-            I.eraseFromParent();
-          }
-          else if(BitWidth == 16){
-            Type *Int16Ty = Type::getInt16Ty(Ctx);
-            Type *Int16PtrTy = Type::getInt16PtrTy(Ctx);
-            FunctionType *FuncType = FunctionType::get(Int16Ty,{Int16PtrTy}, false);
-            FunctionCallee FC = M->getOrInsertFunction("aload_i16", FuncType);
-            Value *Call = Builder.CreateCall(FC, Ptr);
-            I.replaceAllUsesWith(Call);
-            I.eraseFromParent();
-          }
-          else if(BitWidth == 32){
-            Type *Int32Ty = Type::getInt32Ty(Ctx);
-            Type *Int32PtrTy = Type::getInt32PtrTy(Ctx);
-            FunctionType *FuncType = FunctionType::get(Int32Ty,{Int32PtrTy}, false);
-            FunctionCallee FC = M->getOrInsertFunction("aload_i32", FuncType);
-            Value *Call = Builder.CreateCall(FC, loadPtr);
-            I.replaceAllUsesWith(Call);
-            I.eraseFromParent();
-          }
-          else if(BitWidth == 64){
-            Type *Int64Ty = Type::getInt64Ty(Ctx);
-            Type *Int64PtrTy = Type::getInt64PtrTy(Ctx);
-            FunctionType *FuncType = FunctionType::get(Int64Ty,{Int64PtrTy}, false);
-            FunctionCallee FC = M->getOrInsertFunction("aload_i64", FuncType);
-            Value *Call = Builder.CreateCall(FC, Ptr);
-            I.replaceAllUsesWith(Call);
-            I.eraseFromParent();
-          }
+    // Part 3 : Rearrange load instructions for best results. (NOT IMPLEMENTED)
+
+    // Part 4: Replace load with aload (Assume that unused loads are removed in GVN pass.)
+    // (1) For each load, replace load with an aload call if the lower bound of cost before use is greater than or equal to 5.
+    int sumMinCost;
+    bool isLoadInstUsed;
+    for (auto i = BB.begin(), e = BB.end(); i != e; ){
+      // i++ required since replaceWithAload(I); destroys I and thus the loop without it.
+      Instruction &I = *(i++);
+      if (!dyn_cast<LoadInst>(&I)) continue;
+      LoadInst *loadInst = dyn_cast<LoadInst>(&I);
+      sumMinCost = 0;
+      isLoadInstUsed = false;
+      for (auto j = I.getNextNode()->getIterator(), e = BB.end(); j != e; j++){
+        Instruction &J = *j;
+        for (const Use &Op : J.operands()){
+          if (Op.get() == loadInst) isLoadInstUsed = true;
         }
+        if (isLoadInstUsed) break;
+        sumMinCost += getMinCost(&J);
       }
-    } 
+      if (sumMinCost >= 5) replaceWithAload(I);
+    }
 
-    return PreservedAnalyses::none(); // or all();
+    // (2) After 1st pass, replace load with an aload call if an unchanged load instruction exists below. (Only check for consecutive load/aload instructions.)
+    bool loadExistsBelow;
+    for (BasicBlock::reverse_iterator i = BB.rbegin(), e = BB.rend(); i != e; ){
+      // i++ required since replaceWithAload(I); destroys I and thus the loop without it.
+      Instruction &I = *(i++);
+      if (!dyn_cast<LoadInst>(&I) && !isAloadCall(I)) loadExistsBelow = false;
+      if (!dyn_cast<LoadInst>(&I)) continue;
+      
+      if (loadExistsBelow) replaceWithAload(I);
+      else loadExistsBelow = true;
+    }
+  }
+    return PreservedAnalyses::none();
 };
 
 extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
