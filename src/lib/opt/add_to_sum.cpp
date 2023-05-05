@@ -158,9 +158,11 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
       for (int idx = 0; idx < AddToSumOps[inst].size(); ++idx) {
         if (AddToSumOpsSign[inst][idx]) {
           if (auto cnst = dyn_cast<Constant>(AddToSumOps[inst][idx])) {
+            // Constants are simply negated
             auto negConst = ConstantExpr::getNeg(cnst);
             AddToSumOps[inst][idx] = negConst;
           } else {
+            // Instructions are multiplied by -1
             auto negInst = BinaryOperator::CreateMul(
                 AddToSumOps[inst][idx], ConstantInt::get(inst->getType(), -1),
                 "neg." + AddToSumOps[inst][idx]->getName());
