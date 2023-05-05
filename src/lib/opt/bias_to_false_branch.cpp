@@ -1,66 +1,115 @@
 #include "bias_to_false_branch.h"
 
-#include "llvm/Analysis/BranchProbabilityInfo.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
-using namespace std;
 
 #define DEBUG_TYPE "bias-to-false-branch"
 
 namespace sc::opt::bias_to_false_branch {
+
+// Helper function to get the probability of a false branch for a given
+// BranchInst
+double
+BiasToFalseBranch::getFalseBranchProbability(BranchInst *BI,
+                                             BranchProbabilityInfo &BPI) {
+  BasicBlock *parentBB = BI->getParent();
+  BasicBlock *falseBB = BI->getSuccessor(1);
+  BranchProbability prob = BPI.getEdgeProbability(parentBB, falseBB);
+  return static_cast<double>(prob.getNumerator()) / prob.getDenominator();
+}
+
 PreservedAnalyses BiasToFalseBranch::run(Function &F,
                                          FunctionAnalysisManager &FAM) {
 
   BranchProbabilityInfo &BPI = FAM.getResult<BranchProbabilityAnalysis>(F);
 
-  // loop basic blocks and check for all conditional edges
-  for (BasicBlock &BB : F) {
-    BranchInst *BI = dyn_cast<BranchInst>(BB.getTerminator());
-    if (!BI || !BI->isConditional()) {
-      continue;
-    }
+  // Gather all unique condition instructions for branch instructions
+  std::set<Value *> conditions;
 
-    Value *Cond = BI->getCondition();
-    ICmpInst *CI = dyn_cast<ICmpInst>(Cond);
-    if (!CI) {
-      continue;
-    }
-
-    // check if Cond is not used anywhere and only exists for branch
-    // conditioning
-    bool isCondOnlyForBranching = true;
-    for (auto *U : Cond->users()) {
-      if (U != BI) {
-        isCondOnlyForBranching = false;
-        break;
+  for (Instruction &I : instructions(F)) {
+    if (BranchInst *BI = dyn_cast<BranchInst>(&I)) {
+      if (BI->isConditional()) {
+        conditions.insert(BI->getCondition());
       }
     }
-    if (!isCondOnlyForBranching) {
-      continue;
+  }
+
+  // Iterate through all ICmp instructions
+  for (Value *Cond : conditions) {
+    std::vector<BranchInst *> branchInsts;
+
+    // Gather all conditional branch instructions using the ICmp instruction
+    for (User *U : Cond->users()) {
+      if (BranchInst *BI = dyn_cast<BranchInst>(U)) {
+        if (BI->isConditional() && BI->getCondition() == Cond) {
+          LLVM_DEBUG(dbgs() << "User: " << *U << "\n");
+          branchInsts.push_back(BI);
+        }
+      }
     }
 
-    // if the false branch is less probable than the true branch, swap the
-    // condition
-    BasicBlock *TrueBB = BI->getSuccessor(0);
-    BasicBlock *FalseBB = BI->getSuccessor(1);
-    BranchProbability false_prob = BPI.getEdgeProbability(&BB, FalseBB);
+    for (BranchInst *BI : branchInsts) {
+      double prob = getFalseBranchProbability(BI, BPI);
+      LLVM_DEBUG(dbgs() << "Branch: " << *BI << ", probability: " << prob
+                        << "\n");
+    }
+    // Check if the inverted condition needs to be created
+    bool allBranches = branchInsts.size() ==
+                       std::distance(Cond->user_begin(), Cond->user_end());
 
-    double false_prob_float =
-        ((double)false_prob.getNumerator()) / false_prob.getDenominator();
+    bool allProbLessThan07 = std::all_of(
+        branchInsts.begin(), branchInsts.end(), [&](BranchInst *BI) {
+          double prob = getFalseBranchProbability(BI, BPI);
+          return prob < 0.7;
+        });
 
-    LLVM_DEBUG(dbgs() << "Edge " << BB.getName() << " -> " << FalseBB->getName()
-                      << " has probability " << false_prob_float << "\n");
+    bool allprobLessOrEqualTo05 = std::all_of(
+        branchInsts.begin(), branchInsts.end(), [&](BranchInst *BI) {
+          double prob = getFalseBranchProbability(BI, BPI);
+          return prob <= 0.5;
+        });
 
-    if (false_prob_float < 0.5) {
-      // swap to make false branch more probable
+    bool anyProbLessThan03 = std::any_of(
+        branchInsts.begin(), branchInsts.end(), [&](BranchInst *BI) {
+          double prob = getFalseBranchProbability(BI, BPI);
+          return prob < 0.3;
+        });
+
+    ICmpInst *CI = dyn_cast<ICmpInst>(Cond);
+
+    // When we can throw away the original condition, just invert the condition
+    if (CI && allBranches && allProbLessThan07 &&
+        (allprobLessOrEqualTo05 || anyProbLessThan03)) {
       CI->setPredicate(CI->getInversePredicate());
-      BI->swapSuccessors();
+      for (BranchInst *BI : branchInsts) {
+        BI->swapSuccessors();
+      }
     }
-    // else, false branch is more probable; do nothing
+
+    else {
+      // Keep the original condition and optionally create the inverted
+      // condition
+      for (BranchInst *BI : branchInsts) {
+        double prob_float = getFalseBranchProbability(BI, BPI);
+
+        if (prob_float < 0.3) {
+          IRBuilder<> builder(BI);
+          ConstantInt *TrueValue = ConstantInt::get(builder.getInt1Ty(), 0);
+          ConstantInt *FalseValue = ConstantInt::get(builder.getInt1Ty(), 1);
+          Value *invertedCond = builder.CreateSelect(
+              Cond, TrueValue, FalseValue, "not_" + Cond->getName());
+
+          BI->setCondition(invertedCond);
+          BI->swapSuccessors();
+        }
+      }
+    }
   }
 
   return PreservedAnalyses::none();
