@@ -134,9 +134,9 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
         for (int idx = 0; idx < AddToSumOps[inst].size(); ++idx) {
           ulong operand_space_left = 8 - AddToSumOps[inst].size();
           auto *op = dyn_cast<Instruction>(AddToSumOps[inst][idx]);
-          // Check for possible `mul` expansion
           if (op == nullptr)
             continue;
+          // Check for possible `mul` expansion
           if (op->getOpcode() == Instruction::Mul) {
             for (int op_i = 0; op_i < 2; ++op_i) {
               if (auto *const_op =
