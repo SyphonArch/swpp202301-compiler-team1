@@ -33,6 +33,8 @@ jobs:
     - name: Build
       run: cmake --build build --target swpp-compiler
 
-    - name: Test
+    - name: Unit Test
       run: ctest --test-dir build
 
+    - name: Test Benchmark Compilation
+      run: ./.github/scripts/test_benchmark_compilation.sh ./alive2/build/
