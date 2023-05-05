@@ -30,9 +30,12 @@ define i64 @constant_sub(i64 %a) {
 }
 
 define i64 @sub_test(i64 %a, i64 %b, i64 %c) {
-;CHECK-LABEL: @sub_test(i64 %a)
-;CHECK-NEXT:  %d = call i64 @int_sum_i64(i64 3, i64 -2, i64 %a, i64 -1, i64 0, i64 0, i64 0, i64 0)
-;CHECK-NEXT:  ret i64 %d
+;CHECK-LABEL: @sub_test(i64 %a, i64 %b, i64 %c)
+;CHECK-NEXT:  %neg.b = mul i64 %b, -1
+;CHECK-NEXT:  %neg.c = mul i64 %c, -1
+;CHECK-NEXT:  %z = call i64 @int_sum_i64(i64 3, i64 %neg.c, i64 %a, i64 %neg.b, i64 0, i64 0, i64 0, i64 0)
+;CHECK-NEXT:  ret i64 %z
+
   %x = sub i64 %a, %b
   %y = sub i64 %x, %c
   %z = add i64 %y, 3
