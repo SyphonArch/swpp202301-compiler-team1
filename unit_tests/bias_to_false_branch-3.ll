@@ -10,7 +10,7 @@ define i32 @each_prob_less_than_03_and_higher_than_07() {
 entry:
   br label %while.cond
 
-while.cond:                                      
+while.cond:
   %i.0 = phi i32 [ 0, %entry ], [ %add, %while.body ]
   %cmp = icmp slt i32 %i.0, 10
 ; CHECK: %cmp = icmp slt i32 %i.0, 10
@@ -18,17 +18,17 @@ while.cond:
 ; CHECK: %not_cmp = select i1 %cmp, i1 false, i1 true
 ; CHECK-NEXT: br i1 %not_cmp, label %while2.cond, label %while.body
 
-while.body:                                      
+while.body:
   %add = add nsw i32 %i.0, 1
   br label %while.cond
 
-while2.cond:                                               
+while2.cond:
   br i1 %cmp, label %while2.end, label %while2.body
 ; CHECK-NOT: %not_cmp
 ; CHECK: br i1 %cmp, label %while2.end, label %while2.body
 
 
-while2.body:                                      
+while2.body:
   %add2 = add nsw i32 %i.0, 1
   br label %while2.cond
 
