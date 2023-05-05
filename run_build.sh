@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Please modify here
-ALIVE_BINARY_DIR= # ex) ../alive2/build/
-CMAKE_PREFIX_PATH= # ex) ~/llvm-swpp
+# This file is designed for local build configurations
+# Update the following variables according to your environment
+ALIVE_BINARY_DIR=../alive2/build # ex) ../alive2/build/
+CMAKE_PREFIX_PATH=~/llvm-swpp # ex) ~/llvm-swpp
 
 set -e
 
