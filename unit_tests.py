@@ -29,14 +29,16 @@ for entry in entries:
     for ll_file in ll_files:
         ll_path = f"{ll_files_dir}/{ll_file}"
 
-        print(f"\t{ll_path}")
+        print(f"Test file: \t{ll_path}")
         # Run opt with the pass shared library
         opt_cmd = [f"{llvm_path}/bin/opt", f"-load-pass-plugin=./build/{pass_lib}", f"-passes={passname}",
                    ll_path, "-S", "-o", f"./tmp/out.{ll_file}"]
+        print(f"\t{' '.join(opt_cmd)}")
         subprocess.run(opt_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # Run filecheck on the output
         filecheck_cmd = [f"{llvm_path}/bin/FileCheck", ll_path]
+        print(f"\t{' '.join(filecheck_cmd)}")
         with open(f'./tmp/out.{ll_file}', 'r') as f:
             result = subprocess.run(filecheck_cmd, stdin=f, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -44,7 +46,9 @@ for entry in entries:
             print(result.stderr.decode("utf-8"))
             failures = True
         
+        # Run alive2 validation on the output
         alive2_cmd = [alive_tv_binary, ll_path, f"./tmp/out.{ll_file}"]
+        print(f"\t{' '.join(alive2_cmd)}")
         result = subprocess.run(alive2_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
         if result.returncode != 0:
