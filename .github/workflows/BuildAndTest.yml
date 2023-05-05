@@ -20,7 +20,7 @@ jobs:
       run: ./.github/scripts/build_alive2.sh
 
     - name: Configure CMake
-      run: cmake -GNinja -Bbuild  1849  cmake -GNinja -Bbuild -DALIVE2_BINARY_DIR=~./alive2/build/
+      run: cmake -GNinja -Bbuild -DALIVE2_BINARY_DIR=~./alive2/build/
       
     - name: Build
       run: cmake --build build --target swpp-compiler
