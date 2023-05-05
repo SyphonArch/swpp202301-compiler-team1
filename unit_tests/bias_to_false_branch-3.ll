@@ -1,67 +1,37 @@
 ; RUN: opt < %s -load-pass-plugin=./build/libBiasToFalseBranch.so -passes=bias-to-false-branch -S | FileCheck %s
-; check BranchProbabilityAnalysis correctly computes branch probability
+; Test case for an icmp instruction used in two branches.
 
-declare i32 @f()
-declare i32 @g()
+; The first branch probability ~= 0.03 (looping edge)
+; and the second is 0.97 (looping edge)
+; So the the invert condition needs to be created to avoid side effect.
+define i32 @each_prob_less_than_03_and_higher_than_07() {
+; CHECK-LABEL: @each_prob_less_than_03_and_higher_than_07(
 
-; due to pointer heuristics, branch prob becomes 0.625 / 0.375. So, swap conditions.
-define i32 @cmp_ptr(ptr %0, ptr %1) {
-; CHECK-LABEL: @cmp_ptr(
-; CHECK-NEXT:    [[COND:%.*]] = icmp eq ptr [[TMP0:%.*]], [[TMP1:%.*]]
-; CHECK-NEXT:    br i1 [[COND]], label %false_bb, label %true_bb
-; CHECK:       true_bb:
-; CHECK-NEXT:    [[X:%.*]] = call i32 @f()
-; CHECK-NEXT:    br label %exit
-; CHECK:       false_bb:
-; CHECK-NEXT:    [[Y:%.*]] = call i32 @g()
-; CHECK-NEXT:    br label %exit
-; CHECK:       exit:
-; CHECK-NEXT:    [[Z:%.*]] = phi i32 [ [[X]], %true_bb ], [ [[Y]], %false_bb ]
-; CHECK-NEXT:    ret i32 [[Z]]
-;
-  %cond = icmp ne ptr %0, %1
-  br i1 %cond, label %true_bb, label %false_bb
+entry:
+  br label %while.cond
 
-true_bb:                                                ; preds = %2
-  %x = call i32 @f()
-  br label %exit
+while.cond:                                       ; preds = %while.body, %entry
+  %i.0 = phi i32 [ 0, %entry ], [ %add, %while.body ]
+  %cmp = icmp slt i32 %i.0, 10
+; CHECK: %cmp = icmp slt i32 %i.0, 10
+  br i1 %cmp, label %while.body, label %while2.cond
+; CHECK: %not_cmp = select i1 %cmp, i1 false, i1 true
+; CHECK-NEXT: br i1 %not_cmp, label %while2.cond, label %while.body
 
-false_bb:                                                ; preds = %2
-  %y = call i32 @g()
-  br label %exit
+while.body:                                       ; preds = %while.cond
+  %add = add nsw i32 %i.0, 1
+  br label %while.cond
 
-exit:                                                ; preds = %false_bb, %true_bb
-  %z = phi i32 [ %x, %true_bb ], [ %y, %false_bb ]
-  ret i32 %z
-}
+while2.cond:                                                ; preds = %2
+  br i1 %cmp, label %while2.end, label %while2.body
+; CHECK-NOT: %not_cmp
+; CHECK: br i1 %cmp, label %while2.end, label %while2.body
 
-; when there is no information, branch prob becomes 0.5 / 0.5. So, do nothing.
-define i32 @cmp_int(i32 %0, i32 %1) {
-; CHECK-LABEL: @cmp_int(
-; CHECK-NEXT:    [[COND:%.*]] = icmp ne i32 [[TMP0:%.*]], [[TMP1:%.*]]
-; CHECK-NEXT:    br i1 [[COND]], label %true_bb, label %false_bb
-; CHECK:       true_bb:
-; CHECK-NEXT:    [[X:%.*]] = call i32 @f()
-; CHECK-NEXT:    br label %exit
-; CHECK:       false_bb:
-; CHECK-NEXT:    [[Y:%.*]] = call i32 @g()
-; CHECK-NEXT:    br label %exit
-; CHECK:       exit:
-; CHECK-NEXT:    [[Z:%.*]] = phi i32 [ [[X]], %true_bb ], [ [[Y]], %false_bb ]
-; CHECK-NEXT:    ret i32 [[Z]]
-;
-  %cond = icmp ne i32 %0, %1
-  br i1 %cond, label %true_bb, label %false_bb
 
-true_bb:                                                ; preds = %2
-  %x = call i32 @f()
-  br label %exit
+while2.body:                                       ; preds = %while.cond
+  %add2 = add nsw i32 %i.0, 1
+  br label %while2.cond
 
-false_bb:                                                ; preds = %2
-  %y = call i32 @g()
-  br label %exit
-
-exit:                                                ; preds = %false_bb, %true_bb
-  %z = phi i32 [ %x, %true_bb ], [ %y, %false_bb ]
-  ret i32 %z
+while2.end:
+  ret i32 %i.0
 }
