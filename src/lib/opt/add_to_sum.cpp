@@ -22,8 +22,9 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     if (inst == nullptr) {
       return 0;
     }
-    // If inst is not an Add instruction, return 0
-    if (inst->getOpcode() != Instruction::Add) {
+    // If inst is not an `add`/`sub` instruction, return 0
+    if (inst->getOpcode() != Instruction::Add &&
+        inst->getOpcode() != Instruction::Sub) {
       return 0;
     }
     // If the depth of this Instruction has already been computed, return it
@@ -44,9 +45,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
   // Compute the depth of all add instructions in the function
   for (BasicBlock &BB : F) {
     for (Instruction &I : BB) {
-      if (I.getOpcode() == Instruction::Add) {
-        computeDepth(&I);
-      }
+      computeDepth(&I);
     }
   }
 
@@ -61,6 +60,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
 
   // Create a map of Instructions to vector of potential sum operands
   DenseMap<Instruction *, SmallVector<Value *, 8>> AddToSumOps;
+  DenseMap<Instruction *, SmallVector<bool, 8>> AddToSumOpsSign;
   set<Instruction *> toDeleteSet;
   vector<Instruction *> toDeleteVec;
 
@@ -70,10 +70,13 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
   // Loop over all Add instructions, in increasing depth order
   for (auto &entry : AddDepthVec) {
     Instruction *inst = entry.first;
+    bool op2_sign = inst->getOpcode() == Instruction::Sub;
     int depth = entry.second;
     if (depth == 1) { // Both operands are non-add!
       AddToSumOps[inst].push_back(inst->getOperand(0));
+      AddToSumOpsSign[inst].push_back(false);
       AddToSumOps[inst].push_back(inst->getOperand(1));
+      AddToSumOpsSign[inst].push_back(op2_sign);
     } else { // At least one operand is an add!
       assert(depth > 1);
       auto *op1_inst = dyn_cast<Instruction>(inst->getOperand(0));
@@ -83,17 +86,21 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
       for (int i = 0; i < 2; ++i) {
         Instruction *op_inst = i == 0 ? op1_inst : op2_inst;
         if (op_inst == nullptr ||
-            op_inst->getOpcode() != Instruction::Add) { // non-add
+            op_inst->getOpcode() != Instruction::Add &&
+                op_inst->getOpcode() != Instruction::Sub) { // non-add/sub
           AddToSumOps[inst].push_back(inst->getOperand(i));
+          AddToSumOpsSign[inst].push_back(i != 0 && op2_sign);
         }
       }
       // Add `add` operands
       for (int i = 0; i < 2; ++i) {
         Instruction *op_inst = i == 0 ? op1_inst : op2_inst;
-        if (op_inst && op_inst->getOpcode() == Instruction::Add) { // adds
+        if (op_inst && (op_inst->getOpcode() == Instruction::Add ||
+                        op_inst->getOpcode() == Instruction::Sub)) { // add/subs
           assert(!AddToSumOps[op_inst].empty());
-          if (!op_inst->hasOneUse()) { // non-one-use `add` operand
+          if (!op_inst->hasOneUse()) { // non-one-use `add`/`sub` operand
             AddToSumOps[inst].push_back(op_inst);
+            AddToSumOpsSign[inst].push_back(i != 0 && op2_sign);
             continue;
           }
           // Calculate how many more `sum` operands can be used
@@ -101,6 +108,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
           // too many operands for `sum`
           if (AddToSumOps[op_inst].size() > max_ops_to_add) {
             AddToSumOps[inst].push_back(op_inst);
+            AddToSumOpsSign[inst].push_back(i != 0 && op2_sign);
             continue;
           }
           // Operands can be merged now!
@@ -108,8 +116,11 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
           toDeleteSet.insert(op_inst);
           toDeleteVec.push_back(op_inst);
           // add operands' operands to current instruction's operands
-          for (auto &val : AddToSumOps[op_inst]) {
-            AddToSumOps[inst].push_back(val);
+          // for (auto &val : AddToSumOps[op_inst]) {
+          for (int idx = 0; idx < AddToSumOps[op_inst].size(); ++idx) {
+            AddToSumOps[inst].push_back(AddToSumOps[op_inst][idx]);
+            AddToSumOpsSign[inst].push_back((i != 0 && op2_sign) ^
+                                            AddToSumOpsSign[op_inst][idx]);
           }
         }
       }
@@ -130,6 +141,42 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     int depth = (*entry).second;
 
     if (!toDeleteSet.count(inst) && AddToSumOps[inst].size() >= 3) {
+      // For 3 operands, don't replace with sum if there are any `sub`s involved
+      if (AddToSumOps[inst].size() == 3) {
+        bool has_sign = false;
+        for (auto &sign : AddToSumOpsSign[inst]) {
+          if (sign) {
+            has_sign = true;
+            break;
+          }
+        }
+        if (has_sign) {
+          continue;
+        }
+      }
+      // Replace signed operands
+      for (int idx = 0; idx < AddToSumOps[inst].size(); ++idx) {
+        if (AddToSumOpsSign[inst][idx]) {
+          if (auto cnst = dyn_cast<Constant>(AddToSumOps[inst][idx])) {
+            auto negConst = ConstantExpr::getNeg(cnst);
+            AddToSumOps[inst][idx] = negConst;
+          } else {
+            auto negInst = BinaryOperator::CreateMul(
+                AddToSumOps[inst][idx], ConstantInt::get(inst->getType(), -1),
+                "neg." + AddToSumOps[inst][idx]->getName());
+            if (auto *op = dyn_cast<Instruction>(AddToSumOps[inst][idx])) {
+              // operand was an instruction
+              negInst->insertAfter(op);
+            } else {
+              // operand was an argument or a global variable
+              F.getEntryBlock().getInstList().push_front(negInst);
+            }
+            AddToSumOps[inst][idx] = negInst;
+          }
+        }
+      }
+
+      // Now check for possible operand expansions
       if (AddToSumOps.count(inst)) { // If there are operands
         for (int idx = 0; idx < AddToSumOps[inst].size(); ++idx) {
           ulong operand_space_left = 8 - AddToSumOps[inst].size();
@@ -219,7 +266,11 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
    * Remove Redundant Instructions */
 
   for (auto inst = toDeleteVec.rbegin(); inst != toDeleteVec.rend(); ++inst) {
-    (*inst)->eraseFromParent();
+    // This check is necessary because some `sub` instructions might not
+    // actually have been replaced by `sum`
+    if ((*inst)->use_empty()) {
+      (*inst)->eraseFromParent();
+    }
   }
 
   for (auto &inst : CheckForDeletion) {
