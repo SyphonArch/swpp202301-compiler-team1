@@ -123,6 +123,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
   // because only so does `replaceAllUsesWith` correctly replace all occurrences
   // of the Instruction. This is because replacing `add` instructions into
   // `sum` instructions introduces new usages of lower-depth `add` Instructions.
+  vector<Instruction *> CheckForDeletion;
   for (auto entry = AddDepthVec.rbegin(); entry != AddDepthVec.rend();
        ++entry) {
     Instruction *inst = (*entry).first;
@@ -136,6 +137,36 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     outs() << '\n';
 
     if (!toDeleteSet.count(inst) && AddToSumOps[inst].size() >= 3) {
+      // Check for possible `mul` expansion
+      bool expansion;
+      if (AddToSumOps.count(inst)) { // If there are operands
+        for (int idx = 0; idx < AddToSumOps[inst].size();) {
+          expansion = false;
+          ulong operand_space_left = 8 - AddToSumOps[inst].size();
+          auto *op = dyn_cast<Instruction>(AddToSumOps[inst][idx]);
+          if (op && op->getOpcode() == Instruction::Mul) {
+            for (int op_i = 0; op_i < 2; ++op_i) {
+              if (auto *const_op =
+                      dyn_cast<ConstantInt>(op->getOperand(op_i))) {
+                // If `mul` operand has a small enough constant as its operand
+                auto const_op_val = const_op->getSExtValue();
+                if (const_op_val <= operand_space_left + 1 &&
+                    const_op_val >= 0) {
+                  CheckForDeletion.push_back(op);
+                  AddToSumOps[inst].erase(AddToSumOps[inst].begin() + idx);
+                  for (int i = 0; i < const_op_val; ++i) {
+                    AddToSumOps[inst].push_back(op->getOperand((op_i + 1) % 2));
+                  }
+                  expansion = true;
+                  break;
+                }
+              }
+            }
+          }
+          if (!expansion)
+            ++idx;
+        }
+      }
       IRBuilder<> Builder(inst);
       LLVMContext &Ctx = inst->getContext();
       FunctionType *FuncType;
@@ -174,10 +205,16 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
   }
 
   /* ===== PHASE 5 ============================
-   * Remove Redundant Instructions, in Reverse Order */
+   * Remove Redundant Instructions */
 
   for (auto inst = toDeleteVec.rbegin(); inst != toDeleteVec.rend(); ++inst) {
     (*inst)->eraseFromParent();
+  }
+
+  for (auto &inst : CheckForDeletion) {
+    if (inst->use_empty()) {
+      (inst->eraseFromParent());
+    }
   }
 
   return PreservedAnalyses::none();
