@@ -5,6 +5,7 @@ import sys
 passes_dir = './src/lib/opt'
 ll_files_dir = './unit_tests'
 llvm_path = sys.argv[1]
+alive_tv_binary = sys.argv[2]
 
 # get the directory of the current file
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -42,9 +43,9 @@ for entry in entries:
         if result.returncode != 0:
             print(result.stderr.decode("utf-8"))
             failures = True
-
-        alive2_cmd = [f"./swpp202301/practice/alive2", ll_path, f"./tmp/out.{ll_file}"]
-        result = subprocess.run(filecheck_cmd, stdin=f, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        alive2_cmd = [alive_tv_binary, ll_path, f"./tmp/out.{ll_file}"]
+        result = subprocess.run(alive2_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
         if result.returncode != 0:
             print(result.stderr.decode("utf-8"))
