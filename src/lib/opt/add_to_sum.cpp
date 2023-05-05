@@ -123,28 +123,21 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
   // because only so does `replaceAllUsesWith` correctly replace all occurrences
   // of the Instruction. This is because replacing `add` instructions into
   // `sum` instructions introduces new usages of lower-depth `add` Instructions.
-  vector<Instruction *> CheckForDeletion;
+  set<Instruction *> CheckForDeletion;
   for (auto entry = AddDepthVec.rbegin(); entry != AddDepthVec.rend();
        ++entry) {
     Instruction *inst = (*entry).first;
     int depth = (*entry).second;
-    outs() << "Depth: " << depth << " | " << inst->getName() << " | ";
-    if (AddToSumOps.count(inst)) {
-      for (auto &val : AddToSumOps[inst]) {
-        outs() << val->getName() << ", ";
-      }
-    }
-    outs() << '\n';
 
     if (!toDeleteSet.count(inst) && AddToSumOps[inst].size() >= 3) {
-      // Check for possible `mul` expansion
-      bool expansion;
       if (AddToSumOps.count(inst)) { // If there are operands
-        for (int idx = 0; idx < AddToSumOps[inst].size();) {
-          expansion = false;
+        for (int idx = 0; idx < AddToSumOps[inst].size(); ++idx) {
           ulong operand_space_left = 8 - AddToSumOps[inst].size();
           auto *op = dyn_cast<Instruction>(AddToSumOps[inst][idx]);
-          if (op && op->getOpcode() == Instruction::Mul) {
+          // Check for possible `mul` expansion
+          if (op == nullptr)
+            continue;
+          if (op->getOpcode() == Instruction::Mul) {
             for (int op_i = 0; op_i < 2; ++op_i) {
               if (auto *const_op =
                       dyn_cast<ConstantInt>(op->getOperand(op_i))) {
@@ -152,21 +145,39 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
                 auto const_op_val = const_op->getSExtValue();
                 if (const_op_val <= operand_space_left + 1 &&
                     const_op_val >= 0) {
-                  CheckForDeletion.push_back(op);
+                  CheckForDeletion.insert(op);
                   AddToSumOps[inst].erase(AddToSumOps[inst].begin() + idx);
                   for (int i = 0; i < const_op_val; ++i) {
                     AddToSumOps[inst].push_back(op->getOperand((op_i + 1) % 2));
                   }
-                  expansion = true;
+                  --idx;
                   break;
                 }
               }
             }
+          } else if (op->getOpcode() == Instruction::Add) {
+            // Expand non-one-use `add`
+            // May expand multiple times
+            if (operand_space_left >= AddToSumOps[op].size()) {
+              CheckForDeletion.insert(op);
+              AddToSumOps[inst].erase(AddToSumOps[inst].begin() + idx);
+              for (auto &opop : AddToSumOps[op]) {
+                AddToSumOps[inst].push_back(opop);
+              }
+              --idx;
+            }
           }
-          if (!expansion)
-            ++idx;
         }
       }
+
+      outs() << "Depth: " << depth << " | " << inst->getName() << " | ";
+      if (AddToSumOps.count(inst)) {
+        for (auto &val : AddToSumOps[inst]) {
+          outs() << val->getName() << ", ";
+        }
+      }
+      outs() << '\n';
+      outs().flush();
       IRBuilder<> Builder(inst);
       LLVMContext &Ctx = inst->getContext();
       FunctionType *FuncType;
