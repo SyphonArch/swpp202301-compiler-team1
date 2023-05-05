@@ -1,8 +1,6 @@
 #include "add_to_sum.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 
