@@ -93,10 +93,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
       for (int i = 0; i < 2; ++i) {
         Instruction *op_inst = i == 0 ? op1_inst : op2_inst;
         if (op_inst && op_inst->getOpcode() == Instruction::Add) { // adds
-          if (AddToSumOps[op_inst].empty()) { // non-marked `add` operand
-            AddToSumOps[inst].push_back(op_inst);
-            continue;
-          }
+          assert(!AddToSumOps[op_inst].empty());
           if (!op_inst->hasOneUse()) { // non-one-use `add` operand
             AddToSumOps[inst].push_back(op_inst);
             continue;
