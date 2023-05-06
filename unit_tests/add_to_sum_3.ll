@@ -1,8 +1,8 @@
 ; Check when more than 8 elements are being added together
 ; Should condense into two sums.
 
-define i64 @add_ten(i64 %a, i64 %b, i64 %c, i64 %d, i64 %e, i64 %f, i64 %g, i64 %h, i64 %i, i64 %j) {
-;CHECK-LABEL: @add_ten(i64 %a, i64 %b, i64 %c, i64 %d, i64 %e, i64 %f, i64 %g, i64 %h, i64 %i, i64 %j)
+define i64 @add_ten(i64 noundef %a, i64 noundef %b, i64 noundef %c, i64 noundef %d, i64 noundef %e, i64 noundef %f, i64 noundef %g, i64 noundef %h, i64 noundef %i, i64 noundef %j) {
+;CHECK-LABEL: @add_ten(i64 noundef %a, i64 noundef %b, i64 noundef %c, i64 noundef %d, i64 noundef %e, i64 noundef %f, i64 noundef %g, i64 noundef %h, i64 noundef %i, i64 noundef %j)
 ;CHECK-NEXT:  %sum7 = call i64 @int_sum_i64(i64 %h, i64 %g, i64 %f, i64 %e, i64 %d, i64 %c, i64 %a, i64 %b)
 ;CHECK-NEXT:  %sum9 = call i64 @int_sum_i64(i64 %j, i64 %i, i64 %sum7, i64 0, i64 0, i64 0, i64 0, i64 0)
 ;CHECK-NEXT:  ret i64 %sum9
@@ -20,8 +20,8 @@ define i64 @add_ten(i64 %a, i64 %b, i64 %c, i64 %d, i64 %e, i64 %f, i64 %g, i64 
 }
 
 ; Should only use one sum, followed by an add.
-define i64 @add_nine(i64 %a, i64 %b, i64 %c, i64 %d, i64 %e, i64 %f, i64 %g, i64 %h, i64 %i) {
-;CHECK-LABEL: @add_nine(i64 %a, i64 %b, i64 %c, i64 %d, i64 %e, i64 %f, i64 %g, i64 %h, i64 %i)
+define i64 @add_nine(i64 noundef %a, i64 noundef %b, i64 noundef %c, i64 noundef %d, i64 noundef %e, i64 noundef %f, i64 noundef %g, i64 noundef %h, i64 noundef %i) {
+;CHECK-LABEL: @add_nine(i64 noundef %a, i64 noundef %b, i64 noundef %c, i64 noundef %d, i64 noundef %e, i64 noundef %f, i64 noundef %g, i64 noundef %h, i64 noundef %i)
 ;CHECK-NEXT:  %sum7 = call i64 @int_sum_i64(i64 %h, i64 %g, i64 %f, i64 %e, i64 %d, i64 %c, i64 %a, i64 %b)
 ;CHECK-NEXT:  %sum8 = add i64 %sum7, %i
 ;CHECK-NEXT:  ret i64 %sum8

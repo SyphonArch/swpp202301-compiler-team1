@@ -1,7 +1,7 @@
 ; Check that `mul` instructions are expanded when possible
 
-define i64 @mul_test(i64 %a, i64 %b, i64 %c, i64 %d) {
-;CHECK-LABEL: @mul_test(i64 %a, i64 %b, i64 %c, i64 %d)
+define i64 @mul_test(i64 noundef %a, i64 noundef %b, i64 noundef %c, i64 noundef %d) {
+;CHECK-LABEL: @mul_test(i64 noundef %a, i64 noundef %b, i64 noundef %c, i64 noundef %d)
 ;CHECK-NEXT:  %sum3 = call i64 @int_sum_i64(i64 %c, i64 %a, i64 %b, i64 %d, i64 %d, i64 %d, i64 %d, i64 0)
 ;CHECK-NEXT:  ret i64 %sum3
 

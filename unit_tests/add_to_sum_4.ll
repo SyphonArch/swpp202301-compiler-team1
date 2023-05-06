@@ -1,7 +1,7 @@
 ; Check that non-add instructions are handled correctly
 
-define i64 @add_div_eight(i64 %a, i64 %b, i64 %c, i64 %d, i64 %e, i64 %f, i64 %g, i64 %h) {
-;CHECK-LABEL: @add_div_eight(i64 %a, i64 %b, i64 %c, i64 %d, i64 %e, i64 %f, i64 %g, i64 %h)
+define i64 @add_div_eight(i64 noundef %a, i64 noundef %b, i64 noundef %c, i64 noundef %d, i64 noundef %e, i64 noundef %f, i64 noundef %g, i64 noundef %h) {
+;CHECK-LABEL: @add_div_eight(i64 noundef %a, i64 noundef %b, i64 noundef %c, i64 noundef %d, i64 noundef %e, i64 noundef %f, i64 noundef %g, i64 noundef %h)
 ;CHECK-NEXT:  %sum2 = call i64 @int_sum_i64(i64 %c, i64 %a, i64 %b, i64 0, i64 0, i64 0, i64 0, i64 0)
 ;CHECK-NEXT:  %sum3 = sdiv i64 %sum2, %d
 ;CHECK-NEXT:  %sum7 = call i64 @int_sum_i64(i64 %h, i64 %g, i64 %f, i64 %sum3, i64 %e, i64 0, i64 0, i64 0)
