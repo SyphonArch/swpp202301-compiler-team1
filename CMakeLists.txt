@@ -14,6 +14,19 @@ find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVM in: ${LLVM_BINARY_DIR}")
 
+# Search for the alive2-tv binary
+find_program(ALIVE_TV_BINARY
+  NAMES alive-tv
+  PATHS ${ALIVE2_BINARY_DIR}
+)
+
+# Check if alive2-tv was found
+if(ALIVE_TV_BINARY)
+  message(STATUS "Found alive-tv: ${ALIVE_TV_BINARY}")
+else()
+  message(FATAL_ERROR "Could not find alive-tv")
+endif()
+
 add_compile_options(-fPIC)
 
 add_library(Fs ${SRC_DIR}/fs.cpp)
@@ -86,7 +99,7 @@ endfunction()
 
 # /================= ADD OPT PASSES BELOW ================/
 
-add_opt_pass(DemoPropagateIntegerEquality demopropinteq.cpp)
+
 add_opt_pass(GVNpass gvn_pass.cpp)
 
 # /================== DO NOT EDIT BELOW ==================/
@@ -127,4 +140,4 @@ endif (DOXYGEN_FOUND)
 
 enable_testing()
 # Add tests, subdirectories, etc below
-add_test(NAME unit_tests COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests.py ${LLVM_BINARY_DIR})
+add_test(NAME unit_tests COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests.py ${LLVM_BINARY_DIR} ${ALIVE_TV_BINARY})
