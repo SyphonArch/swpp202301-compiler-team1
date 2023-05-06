@@ -85,7 +85,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
                     dyn_cast<ConstantInt>(AddToSumOps[inst][idx])) {
               AddToSumOps[inst][idx] =
                   ConstantExpr::getAdd(existing_cnst, cnst);
-              ++AddToSumOpsCount[inst][idx];
+              AddToSumOpsCount[inst][idx] += weight;
               return;
             }
           }
