@@ -1,0 +1,488 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c1a537d..ad1284b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.8)
++cmake_minimum_required(VERSION 3.13)
+ include(ProcessorCount)
+ 
+ project(Alive2)
+diff --git a/README.md b/README.md
+index 03ac6eb..16e9c93 100644
+--- a/README.md
++++ b/README.md
+@@ -2,18 +2,9 @@ Alive2
+ ======
+ 
+ Alive2 consists of several libraries and tools for analysis and verification
+-of LLVM code and transformations.
+-Alive2 includes the following libraries:
+-* Alive2 IR
+-* Symbolic executor
+-* LLVM -> Alive2 IR converter
+-* Refinement check (aka optimization verifier)
+-* SMT abstraction layer
+-
+-Included tools:
+-* Alive drop-in replacement
+-* Translation validation plugins for clang and LLVM's `opt`
+-* Standalone translation validation tool: `alive-tv` ([online](https://alive2.llvm.org))
++of LLVM code and transformations.  
++This fork is modified to pre-convert the SWPP2022-specific intrinsics.
++See [here](https://github.com/AliveToolkit/alive2) for the original repo
+ 
+ For a technical introduction to Alive2, please see [our paper from
+ PLDI 2021](https://web.ist.utl.pt/nuno.lopes/pubs.php?id=alive2-pldi21).
+@@ -32,139 +23,15 @@ To build Alive2 you need recent versions of:
+ * gcc/clang
+ * re2c
+ * Z3
+-* LLVM (optional)
++* LLVM (With RTTI and exception handling enabled: the build script in class repo already does that)
+ * hiredis (optional, needed for caching)
+ 
+ 
+ Building
+ --------
+ 
+-```
+-mkdir build
+-cd build
+-cmake -GNinja -DCMAKE_BUILD_TYPE=Release ..
+-ninja
+-```
+-
+-If CMake cannot find the Z3 include directory (or finds the wrong one) pass
+-the ``-DZ3_INCLUDE_DIR=/path/to/z3/include`` and ``-DZ3_LIBRARIES=/path/to/z3/lib/libz3.so`` arguments to CMake.
+-
+-
+-Building and Running Translation Validation
+---------
+-
+-Alive2's `opt` and `clang` translation validation requires a build of LLVM with
+-RTTI and exceptions turned on.
+-LLVM can be built in the following way:
+-```
+-cd llvm
+-mkdir build
+-cd build
+-cmake -GNinja -DLLVM_ENABLE_RTTI=ON -DLLVM_ENABLE_EH=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_PROJECTS="llvm;clang" ../llvm
+-```
+-
+-Alive2 should then be configured as follows:
+-```
+-cmake -GNinja -DCMAKE_PREFIX_PATH=~/llvm/build -DBUILD_TV=1 -DCMAKE_BUILD_TYPE=Release ..
+-```
+-
+-Translation validation of one or more LLVM passes transforming an IR file on Linux:
+-```
+-~/llvm/build/bin/opt -load $HOME/alive2/build/tv/tv.so -load-pass-plugin $HOME/alive2/build/tv/tv.so -tv -instcombine -tv -o /dev/null foo.ll
+-```
+-On a Mac:
+-```
+-~/llvm/build/bin/opt -load $HOME/alive2/build/tv/tv.dylib -load-pass-plugin $HOME/alive2/build/tv/tv.dylib -tv -instcombine -tv -o /dev/null foo.ll
+-```
+-You can run any pass or combination of passes, but on the command line
+-they must be placed in between the two invocations of the Alive2 `-tv`
+-pass.
+-
+-
+-Translation validation of a single LLVM unit test, using lit:
+-```
+-~/llvm/build/bin/llvm-lit -vv -Dopt=$HOME/alive2/build/opt-alive.sh ~/llvm/llvm/test/Transforms/InstCombine/canonicalize-constant-low-bit-mask-and-icmp-sge-to-icmp-sle.ll
+-```
+-
+-The output should be:
+-```
+--- Testing: 1 tests, 1 threads --
+-PASS: LLVM :: Transforms/InstCombine/canonicalize-constant-low-bit-mask-and-icmp-sge-to-icmp-sle.ll (1 of 1)
+-Testing Time: 0.11s
+-  Expected Passes    : 1
+-```
+-
+-To run translation validation on all of the LLVM unit tests for
+-IR-level transformations:
+-
+-```
+-~/llvm/build/bin/llvm-lit -vv -Dopt=$HOME/alive2/build/opt-alive.sh ~/llvm/llvm/test/Transforms
+-```
+-
+-We run this command on the main LLVM branch each day, and keep track of the results
+-[here](https://web.ist.utl.pt/nuno.lopes/alive2/).
+-
+-
+-Running Alive2 as a Clang Plugin
+---------
+-
+-This plugin tries to validate every IR-level transformation performed
+-by LLVM.  Invoke the plugin like this:
+-
+-```
+-$ clang -O3 <src.c> -S -emit-llvm \
+-  -fpass-plugin=$HOME/alive2/build/tv/tv.so \
+-  -Xclang -load -Xclang $HOME/alive2/build/tv/tv.so
+-```
+-
+-Or, more conveniently:
+-
+-```
+-$ $HOME/alive2/build/alivecc -O3 -c <src.c>
+-$ $HOME/alive2/build/alive++ -O3 -c <src.cpp>
+-```
+-
+-The Clang plugin can optionally use multiple cores. To enable parallel
+-translation validation, add the `-mllvm -tv-parallel=XXX` command line
+-options to Clang, where XXX is one of two parallelism managers
+-supported by Alive2. The first (XXX=fifo) uses alive-jobserver: for
+-details about how to use this program, please consult its help output
+-by running it without any command line arguments. The second
+-parallelism manager (XXX=unrestricted) does not restrict parallelism
+-at all, but rather calls fork() freely. This is mainly intended for
+-developer use; it tends to use a lot of RAM.
+-
+-Use the `-mllvm -tv-report-dir=dir` to tell Alive2 to place its output
+-files into a specific directory.
+-
+-The Clang plugin's output can be voluminous. To help control this, it
+-supports an option to reduce the amount of output (`-mllvm
+--tv-quiet`).
+-
+-Our goal is for the `alivecc` and `alive++` compiler drivers to be
+-drop-in replacements for `clang` and `clang++`. So, for example, they
+-try to detect when they are being invoked as assemblers or linkers, in
+-which case they do not load the Alive2 plugin. This means that some
+-projects cannot be built if you manually specify command line options
+-to Alive2, for example using `-DCMAKE_C_FLAGS=...`. Instead, you can
+-tell `alivecc` and `alive++` what to do using a collection of
+-environment variables that generally mirror the plugin's command line
+-interface. For example:
+-
+-```
+-ALIVECC_PARALLEL_UNRESTRICTED=1
+-ALIVECC_PARALLEL_FIFO=1
+-ALIVECC_DISABLE_UNDEF_INPUT=1
+-ALIVECC_DISABLE_POISON_INPUT=1
+-ALIVECC_SMT_TO=timeout in milliseconds
+-ALIVECC_SUBPROCESS_TIMEOUT=timeout in seconds
+-ALIVECC_OVERWRITE_REPORTS=1
+-ALIVECC_REPORT_DIR=dir
+-```
+-
+-If validating the program takes a long time, you can batch optimizations to
+-verify.
+-Please set `ALIVECC_BATCH_OPTS=1` and run `alivecc`/`alive++`.
++Use the `build.sh` to build alive-tv. Default LLVM_DIR and Z3_DIR should work
++for the default CI docker image.
+ 
+ 
+ Running the Standalone Translation Validation Tool (alive-tv)
+diff --git a/build.sh b/build.sh
+new file mode 100755
+index 0000000..7ad925f
+--- /dev/null
++++ b/build.sh
+@@ -0,0 +1,14 @@
++#!/bin/bash
++
++# Specify LLVM installation directory
++LLVM_DIR=/opt/llvm
++# Specify Z3 installation directory
++Z3_DIR=/opt/z3
++
++# Build Alive2
++cmake -GNinja -Bbuild \
++    -DLLVM_ROOT=$LLVM_DIR \
++    -DZ3_ROOT=$Z3_DIR \
++    -DBUILD_TV=ON \
++    -DCMAKE_BUILD_TYPE=Release
++cmake --build build
+diff --git a/tools/alive-tv.cpp b/tools/alive-tv.cpp
+index dd2e109..fc71346 100644
+--- a/tools/alive-tv.cpp
++++ b/tools/alive-tv.cpp
+@@ -12,17 +12,18 @@
+ #include "llvm/ADT/Triple.h"
+ #include "llvm/Analysis/TargetLibraryInfo.h"
+ #include "llvm/Bitcode/BitcodeReader.h"
+-#include "llvm/InitializePasses.h"
+-#include "llvm/IR/LLVMContext.h"
+ #include "llvm/IR/Function.h"
+-#include "llvm/IR/Module.h"
++#include "llvm/IR/LLVMContext.h"
+ #include "llvm/IR/LegacyPassManager.h"
++#include "llvm/IR/Module.h"
+ #include "llvm/IRReader/IRReader.h"
++#include "llvm/InitializePasses.h"
+ #include "llvm/Passes/PassBuilder.h"
+ #include "llvm/Support/PrettyStackTrace.h"
+ #include "llvm/Support/Signals.h"
+ #include "llvm/Support/SourceMgr.h"
+ #include "llvm/Transforms/IPO/PassManagerBuilder.h"
++#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+ #include "llvm/Transforms/Utils/Cloning.h"
+ 
+ #include <fstream>
+@@ -52,13 +53,10 @@ llvm::cl::opt<string> opt_file2(llvm::cl::Positional,
+   llvm::cl::Optional, llvm::cl::value_desc("filename"),
+   llvm::cl::cat(alive_cmdargs));
+ 
+-llvm::cl::opt<std::string> opt_src_fn(LLVM_ARGS_PREFIX "src-fn",
+-  llvm::cl::desc("Name of src function (without @)"),
+-  llvm::cl::cat(alive_cmdargs), llvm::cl::init("src"));
+-
+-llvm::cl::opt<std::string> opt_tgt_fn(LLVM_ARGS_PREFIX"tgt-fn",
+-  llvm::cl::desc("Name of tgt function (without @)"),
+-  llvm::cl::cat(alive_cmdargs), llvm::cl::init("tgt"));
++llvm::cl::opt<std::string>
++    opt_src_fn(LLVM_ARGS_PREFIX "src-fn",
++               llvm::cl::desc("Name of src function (without @)"),
++               llvm::cl::cat(alive_cmdargs), llvm::cl::init("src"));
+ 
+ llvm::cl::opt<string>
+     optPass(LLVM_ARGS_PREFIX "passes",
+@@ -68,6 +66,10 @@ llvm::cl::opt<string>
+                            "https://llvm.org/docs/NewPassManager.html#invoking-opt"),
+             llvm::cl::cat(alive_cmdargs), llvm::cl::init("O2"));
+ 
++llvm::cl::opt<std::string>
++    opt_tgt_fn(LLVM_ARGS_PREFIX "tgt-fn",
++               llvm::cl::desc("Name of tgt function (without @)"),
++               llvm::cl::cat(alive_cmdargs), llvm::cl::init("tgt"));
+ 
+ llvm::ExitOnError ExitOnErr;
+ 
+@@ -75,7 +77,7 @@ llvm::ExitOnError ExitOnErr;
+ std::unique_ptr<llvm::Module> openInputFile(llvm::LLVMContext &Context,
+                                             const string &InputFilename) {
+   auto MB =
+-    ExitOnErr(errorOrToExpected(llvm::MemoryBuffer::getFile(InputFilename)));
++      ExitOnErr(errorOrToExpected(llvm::MemoryBuffer::getFile(InputFilename)));
+   llvm::SMDiagnostic Diag;
+   auto M = getLazyIRModule(std::move(MB), Diag, Context,
+                            /*ShouldLazyLoadMetadata=*/true);
+@@ -258,8 +260,174 @@ llvm::Function *findFunction(llvm::Module &M, const string &FName) {
+   }
+   return 0;
+ }
++
++llvm::Align calculatePtrTypeAlign(llvm::Type *pty) {
++  switch (pty->getNonOpaquePointerElementType()->getIntegerBitWidth()) {
++  case 8:
++    return llvm::Align(1);
++  case 16:
++    return llvm::Align(2);
++  case 32:
++    return llvm::Align(4);
++  case 64:
++    return llvm::Align(8);
++  default:
++    // will break at LoadInst anyway...
++    return llvm::Align(1);
++  }
++}
++
++
++bool checkIntrinsicTypeMatch(llvm::CallInst *CI) {
++  auto ty = CI->getType();
++  auto bw = ty->getIntegerBitWidth();
++  auto bw_str = std::to_string(bw);
++  // not very robust check, but should be sufficient for most of the cases...
++  return CI->getCalledFunction()->getName().endswith(bw_str);
+ }
+ 
++#define CHECK_INTRINSIC(CI)                                                    \
++  {                                                                            \
++    if (!checkIntrinsicTypeMatch(CI)) {                                        \
++      llvm::errs() << "Warning: ill-named SWPP intrinsic ";                    \
++      CI->getCalledFunction()->print(llvm::errs());                            \
++      continue;                                                                \
++    }                                                                          \
++  }
++
++// handle @aload_<Ty>(Ty*) -> Ty
++void replaceAsync(llvm::BasicBlock &BB) {
++  bool complete_iter = true;
++  do {
++    complete_iter = true;
++    for (auto &I : BB) {
++      auto CI = llvm::dyn_cast<llvm::CallInst>(&I);
++      if (CI) {
++        if (CI->getCalledFunction()->getName().startswith("aload")) {
++          CHECK_INTRINSIC(CI);
++
++          auto ptr = CI->getArgOperand(0);
++          auto ty = CI->getType();
++          auto name = CI->getName();
++          auto align = calculatePtrTypeAlign(ptr->getType());
++
++          auto loadInst = new llvm::LoadInst(ty, ptr, name, false, align);
++          llvm::ReplaceInstWithInst(CI, loadInst);
++          complete_iter = false;
++          break;
++        }
++      }
++    }
++  } while (!complete_iter);
++}
++
++// handle @int_sum_<Ty>(Ty, Ty, Ty, Ty, Ty, Ty, Ty, Ty) -> Ty
++void replaceIntSum(llvm::BasicBlock &BB) {
++  bool complete_iter = true;
++  do {
++    complete_iter = true;
++    for (auto &I : BB) {
++      auto CI = llvm::dyn_cast<llvm::CallInst>(&I);
++      if (CI) {
++        if (CI->getCalledFunction()->getName().startswith("int_sum")) {
++          CHECK_INTRINSIC(CI);
++
++          auto op1 = CI->getArgOperand(0);
++          auto op2 = CI->getArgOperand(1);
++          auto op3 = CI->getArgOperand(2);
++          auto op4 = CI->getArgOperand(3);
++          auto op5 = CI->getArgOperand(4);
++          auto op6 = CI->getArgOperand(5);
++          auto op7 = CI->getArgOperand(6);
++          auto op8 = CI->getArgOperand(7);
++
++          auto add1 = llvm::BinaryOperator::Create(llvm::Instruction::Add, op1,
++                                                   op2, llvm::Twine(), CI);
++          auto add2 = llvm::BinaryOperator::Create(llvm::Instruction::Add, add1,
++                                                   op3, llvm::Twine(), CI);
++          auto add3 = llvm::BinaryOperator::Create(llvm::Instruction::Add, add2,
++                                                   op4, llvm::Twine(), CI);
++          auto add4 = llvm::BinaryOperator::Create(llvm::Instruction::Add, add3,
++                                                   op5, llvm::Twine(), CI);
++          auto add5 = llvm::BinaryOperator::Create(llvm::Instruction::Add, add4,
++                                                   op6, llvm::Twine(), CI);
++          auto add6 = llvm::BinaryOperator::Create(llvm::Instruction::Add, add5,
++                                                   op7, llvm::Twine(), CI);
++          auto add7 =
++              llvm::BinaryOperator::Create(llvm::Instruction::Add, add6, op8);
++
++          llvm::ReplaceInstWithInst(CI, add7);
++          complete_iter = false;
++          break;
++        }
++      }
++    }
++  } while (!complete_iter);
++}
++
++// handle @incr_<Ty>(Ty) -> Ty
++void replaceIncrement(llvm::BasicBlock &BB) {
++  bool complete_iter = true;
++  do {
++    complete_iter = true;
++    for (auto &I : BB) {
++      auto CI = llvm::dyn_cast<llvm::CallInst>(&I);
++      if (CI) {
++        if (CI->getCalledFunction()->getName().startswith("incr")) {
++          CHECK_INTRINSIC(CI);
++
++          auto op = CI->getArgOperand(0);
++          auto ty = CI->getType();
++
++          auto addInst = llvm::BinaryOperator::Create(
++              llvm::Instruction::Add, op,
++              llvm::Constant::getIntegerValue(
++                  ty, llvm::APInt(ty->getIntegerBitWidth(), 1)));
++
++          llvm::ReplaceInstWithInst(CI, addInst);
++          complete_iter = false;
++          break;
++        }
++      }
++    }
++  } while (!complete_iter);
++}
++
++// handle @decr_<Ty>(Ty) -> Ty
++void replaceDecrement(llvm::BasicBlock &BB) {
++  bool complete_iter = true;
++  do {
++    complete_iter = true;
++    for (auto &I : BB) {
++      auto CI = llvm::dyn_cast<llvm::CallInst>(&I);
++      if (CI) {
++        if (CI->getCalledFunction()->getName().startswith("decr")) {
++          CHECK_INTRINSIC(CI);
++
++          auto op = CI->getArgOperand(0);
++          auto ty = CI->getType();
++          auto addInst = llvm::BinaryOperator::Create(
++              llvm::Instruction::Sub, op,
++              llvm::Constant::getIntegerValue(
++                  ty, llvm::APInt(ty->getIntegerBitWidth(), 1)));
++
++          llvm::ReplaceInstWithInst(CI, addInst);
++          complete_iter = false;
++          break;
++        }
++      }
++    }
++  } while (!complete_iter);
++}
++
++// handle intrinsics added for swpp
++void replaceSWPPIntrinsics(llvm::BasicBlock &BB) {
++  replaceAsync(BB);
++  replaceIntSum(BB);
++  replaceIncrement(BB);
++  replaceDecrement(BB);
++}
++} // namespace
+ 
+ int main(int argc, char **argv) {
+   llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
+@@ -303,9 +471,14 @@ convenient way to demonstrate an existing optimizer bug.
+     cerr << "Could not read bitcode from '" << opt_file1 << "'\n";
+     return -1;
+   }
++  for (auto &F : *M1.get()) {
++    for (auto &BB : F) {
++      replaceSWPPIntrinsics(BB);
++    }
++  }
+ 
+ #define ARGS_MODULE_VAR M1
+-# include "llvm_util/cmd_args_def.h"
++#include "llvm_util/cmd_args_def.h"
+ 
+   auto &DL = M1.get()->getDataLayout();
+   llvm::Triple targetTriple(M1.get()->getTargetTriple());
+@@ -335,6 +508,11 @@ convenient way to demonstrate an existing optimizer bug.
+       *out << "Could not read bitcode from '" << opt_file2 << "'\n";
+       return -1;
+     }
++    for (auto &F : *M2.get()) {
++      for (auto &BB : F) {
++        replaceSWPPIntrinsics(BB);
++      }
++    }
+   }
+ 
+   if (M1.get()->getTargetTriple() != M2.get()->getTargetTriple()) {
+@@ -368,10 +546,17 @@ convenient way to demonstrate an existing optimizer bug.
+   }
+ 
+   *out << "Summary:\n"
+-          "  " << num_correct << " correct transformations\n"
+-          "  " << num_unsound << " incorrect transformations\n"
+-          "  " << num_failed  << " failed-to-prove transformations\n"
+-          "  " << num_errors << " Alive2 errors\n";
++          "  "
++       << num_correct
++       << " correct transformations\n"
++          "  "
++       << num_unsound
++       << " incorrect transformations\n"
++          "  "
++       << num_failed
++       << " failed-to-prove transformations\n"
++          "  "
++       << num_errors << " Alive2 errors\n";
+ 
+ end:
+   if (opt_smt_stats)

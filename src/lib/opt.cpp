@@ -6,7 +6,6 @@
 #include "print_ir.h"
 
 #include "./opt/bias_to_false_branch.h"
-#include "./opt/demopropinteq.cpp"
 
 using namespace std::string_literals;
 
