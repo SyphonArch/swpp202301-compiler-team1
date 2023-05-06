@@ -4,7 +4,7 @@
 ; add %a %a -> mul %a 2
 
 
-; CHECK-LABEL: @main(i32 %a, i64 %b)
+; CHECK-LABEL: @main(i32 noundef %a, i64 noundef %b)
 
 ; CHECK-NEXT:  [[A1:%.*]] = call i32 @incr_i32(i32 %a)
 ; CHECK-NEXT:  [[A2:%.*]] = call i32 @incr_i32(i32 [[A1]])
@@ -20,7 +20,7 @@
 
 ; CHECK-NEXT: ret i64 [[B5]]
 ;
-define i64 @main(i32 %a, i64 %b) {
+define i64 @main(i32 noundef %a, i64 noundef %b) {
   %c = add i32 %a, 2
   %d = add i32 %c, 3
   %e = add i64 %b, %b

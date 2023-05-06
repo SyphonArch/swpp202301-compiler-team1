@@ -3,7 +3,7 @@
 ; change add %a, const 1 ~ 4
 ; test for types i8, i16, i32, i64
 
-; CHECK-LABEL: @main(i8 %a, i16 %b, i32 %c, i64 %d)
+; CHECK-LABEL: @main(i8 noundef %a, i16 noundef %b, i32 noundef %c, i64 noundef %d)
 ; CHECK-NEXT:  [[A1:%.*]] = call i8 @incr_i8(i8 %a)
 ; CHECK-NEXT:  [[B1:%.*]] = call i16 @incr_i16(i16 %b)
 ; CHECK-NEXT:  [[B2:%.*]] = call i16 @incr_i16(i16 [[B1]])
@@ -16,7 +16,7 @@
 ; CHECK-NEXT:  [[D4:%.*]] = call i64 @incr_i64(i64 [[D3]])
 ; CHECK-NEXT: ret i64 [[D4]]
 
-define i64 @main(i8 %a, i16 %b, i32 %c, i64 %d) {
+define i64 @main(i8 noundef %a, i16 noundef %b, i32 noundef %c, i64 noundef %d) {
   %e = add i8 %a, 1
   %f = add i16 %b, 2
   %g = add i32 %c, 3

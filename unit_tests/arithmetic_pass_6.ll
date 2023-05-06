@@ -6,7 +6,7 @@
 
 
 
-; CHECK-LABEL: @main(i32 %a)
+; CHECK-LABEL: @main(i32 noundef %a)
 
 ; CHECK-NEXT:  [[A1:%.*]] = call i32 @decr_i32(i32 %a)
 ; CHECK-NEXT:  [[A2:%.*]] = call i32 @decr_i32(i32 [[A1]])
@@ -21,7 +21,7 @@
 ; CHECK-NEXT: ret i32 [[A8]]
 ;
 
-define i32 @main(i32 %a) {
+define i32 @main(i32 noundef %a) {
   %b = add i32 %a, -2
   %c = add i32 -3, %b
   %d = sub i32 %c, -3

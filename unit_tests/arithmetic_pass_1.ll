@@ -6,8 +6,8 @@
 ; lshr %x c -> udiv %x (2^c)
 ; sub 0 $a -> mul %a -1
 
-define i32 @main(i32 %a, i32 %b) {
-; CHECK-LABEL: @main(i32 %a, i32 %b)
+define i32 @main(i32 noundef %a, i32 noundef %b) {
+; CHECK-LABEL: @main(i32 noundef %a, i32 noundef %b)
 ; CHECK-NEXT: [[C:%.*]] = mul i32 [[A:%.*]], 2
 ; CHECK-NEXT: [[D:%.*]] = mul i32 [[C]], 32
 ; CHECK-NEXT: [[E:%.*]] = sdiv i32 [[D]], 8
