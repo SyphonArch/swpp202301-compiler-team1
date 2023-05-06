@@ -99,7 +99,11 @@ endfunction()
 
 # /================= ADD OPT PASSES BELOW ================/
 
+
 add_opt_pass(GVNpass gvn_pass.cpp)
+add_opt_pass(AddToSum add_to_sum.cpp)
+add_opt_pass(ArithmeticPass arithmetic_pass.cpp)
+
 
 # /================== DO NOT EDIT BELOW ==================/
 add_library(SCOpt ${SRC_DIR}/lib/opt.cpp)

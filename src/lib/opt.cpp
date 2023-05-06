@@ -6,6 +6,9 @@
 #include "print_ir.h"
 #include "./opt/gvn_pass.h"
 
+#include "./opt/arithmetic_pass.h"
+#include "./opt/add_to_sum.h"
+
 using namespace std::string_literals;
 
 namespace sc::opt {
@@ -26,6 +29,9 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add loop-level opt passes below
 
     // Add function-level opt passes below
+    FPM.addPass(add_to_sum::AddToSum());
+
+    FPM.addPass(arithmetic_pass::ArithmeticPass());
 
     FPM.addPass(gvn_pass::GVNpass());
 
