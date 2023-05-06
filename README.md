@@ -17,12 +17,8 @@ To compile this project, you'll need to clone & build LLVM 15.0.7 first.
 You can either build LLVM on your own, or use the script we provided
 in the main repo
 
-After LLVM 15.0.7 is successfully built, please run:
-
-```
-cmake -GNinja -Bbuild
-cmake --build build --target swpp-compiler
-```
+After LLVM 15.0.7 is successfully built, please run `./run_build.sh`.
+Note that you need to change some variables in the `run_build.sh` script according to your environment.
 
 If CMake fails to locate the installed LLVM or you have multiple LLVMs
 installed, you can instruct CMake to use the LLVM in specific location
@@ -34,8 +30,7 @@ by setting the `LLVM_ROOT` variable in the `CMakeLists.txt`.
 You should configure tests in the `CMakeLists.txt`
 
 ```
-cd build
-ctest
+ctest --test-dir build
 ```
 
 
