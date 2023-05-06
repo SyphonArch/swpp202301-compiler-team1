@@ -61,8 +61,39 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
   // Create a map of Instructions to vector of potential sum operands
   DenseMap<Instruction *, SmallVector<Value *, 8>> AddToSumOps;
   DenseMap<Instruction *, SmallVector<bool, 8>> AddToSumOpsSign;
+  DenseMap<Instruction *, int> AddToSumOpsCount;
   set<Instruction *> toDeleteSet;
   vector<Instruction *> toDeleteVec;
+
+  // Add an operand to an instruction's potential sum operand list
+  function<void(Instruction *, Value *, bool)> addOp = [&](Instruction *inst,
+                                                           Value *val,
+                                                           bool sign) {
+    ++AddToSumOpsCount[inst];
+    if (auto *cnst = dyn_cast<ConstantInt>(val)) {
+      // Constants are always given a positive `sign` by flipping their values,
+      // if necessary. (Of course the constant values themselves can be
+      // negative.) Constants are also merged together for space.
+      if (sign) {
+        auto *negConst = dyn_cast<ConstantInt>(ConstantExpr::getNeg(cnst));
+        assert(negConst);
+        cnst = negConst;
+        val = negConst;
+        sign = false;
+      }
+      // Search for existing constants, and merge
+      for (int idx = 0; idx < AddToSumOps[inst].size(); ++idx) {
+        if (auto *existing_cnst =
+                dyn_cast<ConstantInt>(AddToSumOps[inst][idx])) {
+          AddToSumOps[inst][idx] = ConstantExpr::getAdd(existing_cnst, cnst);
+          return;
+        }
+      }
+    }
+    AddToSumOps[inst].push_back(val);
+    AddToSumOpsSign[inst].push_back(sign);
+    assert(AddToSumOps[inst].size() <= 8);
+  };
 
   /* ===== PHASE 3 ============================
    * Traverse Add instructions, Creating Sum Operand Information */
@@ -73,10 +104,9 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     bool op2_sign = inst->getOpcode() == Instruction::Sub;
     int depth = entry.second;
     if (depth == 1) { // Both operands are non-add!
-      AddToSumOps[inst].push_back(inst->getOperand(0));
-      AddToSumOpsSign[inst].push_back(false);
-      AddToSumOps[inst].push_back(inst->getOperand(1));
-      AddToSumOpsSign[inst].push_back(op2_sign);
+      for (int i = 0; i < 2; ++i) {
+        addOp(inst, inst->getOperand(i), i && op2_sign);
+      }
     } else { // At least one operand is an add!
       assert(depth > 1);
       auto *op1_inst = dyn_cast<Instruction>(inst->getOperand(0));
@@ -88,8 +118,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
         if (op_inst == nullptr ||
             op_inst->getOpcode() != Instruction::Add &&
                 op_inst->getOpcode() != Instruction::Sub) { // non-add/sub
-          AddToSumOps[inst].push_back(inst->getOperand(i));
-          AddToSumOpsSign[inst].push_back(i != 0 && op2_sign);
+          addOp(inst, inst->getOperand(i), i && op2_sign);
         }
       }
       // Add `add` operands
@@ -99,16 +128,14 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
                         op_inst->getOpcode() == Instruction::Sub)) { // add/subs
           assert(!AddToSumOps[op_inst].empty());
           if (!op_inst->hasOneUse()) { // non-one-use `add`/`sub` operand
-            AddToSumOps[inst].push_back(op_inst);
-            AddToSumOpsSign[inst].push_back(i != 0 && op2_sign);
+            addOp(inst, op_inst, i && op2_sign);
             continue;
           }
           // Calculate how many more `sum` operands can be used
           int max_ops_to_add = min(7, (int)(8 - AddToSumOps[inst].size()));
           // too many operands for `sum`
           if (AddToSumOps[op_inst].size() > max_ops_to_add) {
-            AddToSumOps[inst].push_back(op_inst);
-            AddToSumOpsSign[inst].push_back(i != 0 && op2_sign);
+            addOp(inst, op_inst, i && op2_sign);
             continue;
           }
           // Operands can be merged now!
@@ -118,9 +145,8 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
           // add operands' operands to current instruction's operands
           // for (auto &val : AddToSumOps[op_inst]) {
           for (int idx = 0; idx < AddToSumOps[op_inst].size(); ++idx) {
-            AddToSumOps[inst].push_back(AddToSumOps[op_inst][idx]);
-            AddToSumOpsSign[inst].push_back((i != 0 && op2_sign) ^
-                                            AddToSumOpsSign[op_inst][idx]);
+            addOp(inst, AddToSumOps[op_inst][idx],
+                  (i && op2_sign) ^ AddToSumOpsSign[op_inst][idx]);
           }
         }
       }
@@ -140,9 +166,9 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     Instruction *inst = (*entry).first;
     int depth = (*entry).second;
 
-    if (!toDeleteSet.count(inst) && AddToSumOps[inst].size() >= 3) {
+    if (!toDeleteSet.count(inst) && AddToSumOpsCount[inst] >= 3) {
       // For 3 operands, don't replace with sum if there are any `sub`s involved
-      if (AddToSumOps[inst].size() == 3) {
+      if (AddToSumOpsCount[inst] == 3) {
         bool has_sign = false;
         for (auto &sign : AddToSumOpsSign[inst]) {
           if (sign) {
@@ -157,10 +183,9 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
       // Replace signed operands
       for (int idx = 0; idx < AddToSumOps[inst].size(); ++idx) {
         if (AddToSumOpsSign[inst][idx]) {
-          if (auto cnst = dyn_cast<Constant>(AddToSumOps[inst][idx])) {
-            // Constants are simply negated
-            auto negConst = ConstantExpr::getNeg(cnst);
-            AddToSumOps[inst][idx] = negConst;
+          if (auto cnst = dyn_cast<ConstantInt>(AddToSumOps[inst][idx])) {
+            // All constants should have been negated already
+            assert(!cnst->isNegative());
           } else {
             // Instructions are multiplied by -1
             auto negInst = BinaryOperator::CreateMul(
@@ -191,12 +216,11 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
               if (auto *const_op =
                       dyn_cast<ConstantInt>(op->getOperand(op_i))) {
                 // If `mul` operand has a small enough constant as its operand
-                auto const_op_val = const_op->getSExtValue();
-                if (const_op_val <= operand_space_left + 1 &&
-                    const_op_val >= 0) {
+                if (!const_op->isNegative() &&
+                    const_op->getZExtValue() <= operand_space_left + 1) {
                   CheckForDeletion.insert(op);
                   AddToSumOps[inst].erase(AddToSumOps[inst].begin() + idx);
-                  for (int i = 0; i < const_op_val; ++i) {
+                  for (int i = 0; i < const_op->getZExtValue(); ++i) {
                     AddToSumOps[inst].push_back(op->getOperand((op_i + 1) % 2));
                   }
                   --idx;

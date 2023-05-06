@@ -17,15 +17,16 @@ define i64 @add_sub_pairs(i64 noundef %a, i64 noundef %b, i64 noundef %c, i64 no
   ret i64 %sum7
 }
 
-define i64 @constant_sub(i64 noundef %a) {
-;CHECK-LABEL: @constant_sub(i64 noundef %a)
-;CHECK-NEXT:  %e = call i64 @int_sum_i64(i64 -4, i64 -3, i64 -2, i64 %a, i64 -1, i64 0, i64 0, i64 0)
-;CHECK-NEXT:  ret i64 %e
-  %b = sub i64 %a, 1
-  %c = sub i64 %b, 2
-  %d = sub i64 %c, 3
-  %e = sub i64 %d, 4
-  ret i64 %e
+define i64 @constant_sub(i64 noundef %a, i64 noundef %b) {
+;CHECK-LABEL: @constant_sub(i64 noundef %a, i64 noundef %b)
+;CHECK-NEXT:  %g = call i64 @int_sum_i64(i64 %b, i64 -10, i64 %a, i64 0, i64 0, i64 0, i64 0, i64 0)
+;CHECK-NEXT:  ret i64 %g
+  %c = sub i64 %a, 1
+  %d = sub i64 %c, 2
+  %e = sub i64 %d, 3
+  %f = sub i64 %e, 4
+  %g = add i64 %f, %b
+  ret i64 %g
 
 }
 
