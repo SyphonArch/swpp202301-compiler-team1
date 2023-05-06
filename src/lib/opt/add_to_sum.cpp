@@ -144,7 +144,6 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
           toDeleteSet.insert(op_inst);
           toDeleteVec.push_back(op_inst);
           // add operands' operands to current instruction's operands
-          // for (auto &val : AddToSumOps[op_inst]) {
           for (int idx = 0; idx < AddToSumOps[op_inst].size(); ++idx) {
             addOp(inst, AddToSumOps[op_inst][idx],
                   (i && op2_sign) ^ AddToSumOpsSign[op_inst][idx],
