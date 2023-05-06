@@ -9,7 +9,7 @@ set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
 # Specify LLVM directory to use
-# set(LLVM_ROOT ~/llvm-swpp)
+ set(LLVM_ROOT ~/llvm-swpp)
 find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVM in: ${LLVM_BINARY_DIR}")

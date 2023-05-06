@@ -1,8 +1,8 @@
-; Arithmetic Pass test 5
+; Arithmetic Pass test 6
 ; this test includes
-; change add %a, const 1 ~ 4
-; change add const 1 ~ 4, %a
-; there should be no changes to add i32 %a, %b
+; change add %a, const -1 ~ -4
+; change add const -1 ~ -4, %a
+; change sub %a, const -1 ~ -4
 
 
 
