@@ -9,10 +9,9 @@ using namespace std;
 using namespace llvm;
 
 namespace sc::opt::use_async_load {
-    class UseAsyncLoad
-            : public PassInfoMixin<UseAsyncLoad> {
-    public:
-        PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
-    };
-} // namespace
+class UseAsyncLoad : public PassInfoMixin<UseAsyncLoad> {
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
+};
+} // namespace sc::opt::use_async_load
 #endif // SC_OPT_USE_ASYNC_LOAD_H
