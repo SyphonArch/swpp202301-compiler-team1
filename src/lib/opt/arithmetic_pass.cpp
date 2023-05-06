@@ -49,10 +49,8 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
         Value *Op1 = I.getOperand(1);
         ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
         // getValue() cannot be compared, only == is allowed
-        outs() << "negative num!!!\n";
         if (C1 && ((C1->getSExtValue() == -1) || (C1->getSExtValue() == -2) ||
                    (C1->getSExtValue() == -3) || (C1->getSExtValue() == -4))) {
-          outs() << "negative num!!! in add!!!\n";
           Instruction *NewInst;
           if ((C1->getSExtValue() == -1))
             NewInst = BinaryOperator::Create(
@@ -75,7 +73,6 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
         ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
         if (C1 && ((C1->getSExtValue() == -1) || (C1->getSExtValue() == -2) ||
                    (C1->getSExtValue() == -3) || (C1->getSExtValue() == -4))) {
-          outs() << "negative num!!! in sub!!\n";
           Instruction *NewInst;
           if ((C1->getSExtValue() == -1))
             NewInst = BinaryOperator::Create(
