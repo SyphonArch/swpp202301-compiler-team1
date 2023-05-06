@@ -168,7 +168,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     Instruction *inst = (*entry).first;
     int depth = (*entry).second;
     int weight_total = 0;
-    for (auto &weight: AddToSumOpsCount[inst]) {
+    for (auto &weight : AddToSumOpsCount[inst]) {
       weight_total += weight;
     }
     if (!toDeleteSet.count(inst) && weight_total >= 3) {
@@ -188,23 +188,20 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
       // Replace signed operands
       for (int idx = 0; idx < AddToSumOps[inst].size(); ++idx) {
         if (AddToSumOpsSign[inst][idx]) {
-          if (auto cnst = dyn_cast<ConstantInt>(AddToSumOps[inst][idx])) {
-            // All constants should have been negated already
-            assert(!cnst->isNegative());
+          // All constants should have positive sign
+          assert(!dyn_cast<ConstantInt>(AddToSumOps[inst][idx]));
+          // Instructions are multiplied by -1
+          auto negInst = BinaryOperator::CreateMul(
+              AddToSumOps[inst][idx], ConstantInt::get(inst->getType(), -1),
+              "neg." + AddToSumOps[inst][idx]->getName());
+          if (auto *op = dyn_cast<Instruction>(AddToSumOps[inst][idx])) {
+            // operand was an instruction
+            negInst->insertAfter(op);
           } else {
-            // Instructions are multiplied by -1
-            auto negInst = BinaryOperator::CreateMul(
-                AddToSumOps[inst][idx], ConstantInt::get(inst->getType(), -1),
-                "neg." + AddToSumOps[inst][idx]->getName());
-            if (auto *op = dyn_cast<Instruction>(AddToSumOps[inst][idx])) {
-              // operand was an instruction
-              negInst->insertAfter(op);
-            } else {
-              // operand was an argument or a global variable
-              F.getEntryBlock().getInstList().push_front(negInst);
-            }
-            AddToSumOps[inst][idx] = negInst;
+            // operand was an argument or a global variable
+            F.getEntryBlock().getInstList().push_front(negInst);
           }
+          AddToSumOps[inst][idx] = negInst;
         }
       }
 
