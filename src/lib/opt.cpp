@@ -5,6 +5,8 @@
 
 #include "print_ir.h"
 
+#include "./opt/add_to_sum.h"
+
 using namespace std::string_literals;
 
 namespace sc::opt {
@@ -25,6 +27,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add loop-level opt passes below
 
     // Add function-level opt passes below
+    FPM.addPass(add_to_sum::AddToSum());
 
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
     // Add CGSCC-level opt passes below
