@@ -28,7 +28,7 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
         Value *Op1 = I.getOperand(1);
         ConstantInt *C0 = dyn_cast<ConstantInt>(Op0);
         ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
-        if (C0 && !C1) { // Check if operands are equal
+        if (C0 && !C1) { 
           Instruction *NewInst =
               BinaryOperator::Create(Instruction::Add, Op1, Op0);
           ReplaceInstWithInst((&I), NewInst);
@@ -39,7 +39,7 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
   // second preprocess
   // change add %a (-1 ~ -4) -> sub %a (1 ~ 4)
   // change sub %a (-1 ~ -4) -> add %a (1 ~ 4)
-
+  
   for (BasicBlock &BB : F) {
     for (auto i = BB.begin(), en = BB.end(); i != en;) {
       auto temp = i++;
@@ -47,9 +47,10 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
       if (I.getOpcode() == Instruction::Add) {
         Value *Op0 = I.getOperand(0);
         Value *Op1 = I.getOperand(1);
+        ConstantInt *C0 = dyn_cast<ConstantInt>(Op0);
         ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
         // getValue() cannot be compared, only == is allowed
-        if (C1 && ((C1->getSExtValue() == -1) || (C1->getSExtValue() == -2) ||
+        if (!C0 && C1 && ((C1->getSExtValue() == -1) || (C1->getSExtValue() == -2) ||
                    (C1->getSExtValue() == -3) || (C1->getSExtValue() == -4))) {
           Instruction *NewInst;
           if ((C1->getSExtValue() == -1))
@@ -70,8 +71,9 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
       if (I.getOpcode() == Instruction::Sub) {
         Value *Op0 = I.getOperand(0);
         Value *Op1 = I.getOperand(1);
+        ConstantInt *C0 = dyn_cast<ConstantInt>(Op0);
         ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
-        if (C1 && ((C1->getSExtValue() == -1) || (C1->getSExtValue() == -2) ||
+        if (!C0 && C1 && ((C1->getSExtValue() == -1) || (C1->getSExtValue() == -2) ||
                    (C1->getSExtValue() == -3) || (C1->getSExtValue() == -4))) {
           Instruction *NewInst;
           if ((C1->getSExtValue() == -1))
@@ -98,13 +100,17 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
       Instruction &I = *temp;
 
       // change add %a %a -> mul %a 2
+      
       if (I.getOpcode() == Instruction::Add) {
         Value *Op0 = I.getOperand(0);
         Value *Op1 = I.getOperand(1);
-        if (Op0 == Op1) { // Check if operands are equal
+        ConstantInt *C0 = dyn_cast<ConstantInt>(Op0);
+        ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
+        if (!C1 && !C0 && Op0 == Op1) { // Check if operands are equal
           Instruction *NewInst = BinaryOperator::Create(
               Instruction::Mul, Op0, ConstantInt::get(Op0->getType(), 2));
           ReplaceInstWithInst((&I), NewInst);
+          continue;
         }
       }
 
@@ -112,45 +118,62 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
       if (I.getOpcode() == Instruction::Sub) {
         Value *Op0 = I.getOperand(0);
         Value *Op1 = I.getOperand(1);
-        ConstantInt *C = dyn_cast<ConstantInt>(Op0);
-        if (C && (C->getValue() == 0)) {
+        ConstantInt *C0 = dyn_cast<ConstantInt>(Op0);
+        ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
+        if (!C1 && C0 && (C0->getValue() == 0)) {
           Instruction *NewInst = BinaryOperator::Create(
               Instruction::Mul, Op1, ConstantInt::get(Op1->getType(), -1));
           ReplaceInstWithInst((&I), NewInst);
+          continue;
         }
       }
 
       // change shl %x c -> mul %x (2^c)
       if (I.getOpcode() == Instruction::Shl) {
         Value *Op0 = I.getOperand(0);
-        ConstantInt *Op1 = dyn_cast<ConstantInt>(I.getOperand(1));
-        uint32_t lval = Op1->getZExtValue();
-        Instruction *NewInst = BinaryOperator::Create(
-            Instruction::Mul, Op0,
-            ConstantInt::get(Op0->getType(), (1 << lval)));
-        ReplaceInstWithInst((&I), NewInst);
+        Value *Op1 = I.getOperand(1);
+        ConstantInt *C0 = dyn_cast<ConstantInt>(Op0);
+        ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
+        if(!C0 && C1) {
+          uint32_t lval = C1->getZExtValue();
+          Instruction *NewInst = BinaryOperator::Create(
+              Instruction::Mul, Op0,
+              ConstantInt::get(Op0->getType(), (1 << lval)));
+          ReplaceInstWithInst((&I), NewInst);
+          continue;
+        }
       }
 
       // change ashr %x c -> sdiv %x (2^c)
       if (I.getOpcode() == Instruction::AShr) {
         Value *Op0 = I.getOperand(0);
-        ConstantInt *Op1 = dyn_cast<ConstantInt>(I.getOperand(1));
-        uint32_t lval = Op1->getZExtValue();
-        Instruction *NewInst = BinaryOperator::Create(
-            Instruction::SDiv, Op0,
-            ConstantInt::get(Op0->getType(), (1 << lval)));
-        ReplaceInstWithInst((&I), NewInst);
+        Value *Op1 = I.getOperand(1);
+        ConstantInt *C0 = dyn_cast<ConstantInt>(Op0);
+        ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
+        if(!C0 && C1) {
+          uint32_t lval = C1->getZExtValue();
+          Instruction *NewInst = BinaryOperator::Create(
+              Instruction::SDiv, Op0,
+              ConstantInt::get(Op0->getType(), (1 << lval)));
+          ReplaceInstWithInst((&I), NewInst);
+          continue;
+        }
       }
 
       // change lshr %x c -> udiv %x (2^c)
       if (I.getOpcode() == Instruction::LShr) {
         Value *Op0 = I.getOperand(0);
-        ConstantInt *Op1 = dyn_cast<ConstantInt>(I.getOperand(1));
-        uint32_t lval = Op1->getZExtValue();
-        Instruction *NewInst = BinaryOperator::Create(
-            Instruction::UDiv, Op0,
-            ConstantInt::get(Op0->getType(), (1 << lval)));
-        ReplaceInstWithInst((&I), NewInst);
+        Value *Op1 = I.getOperand(1);
+        ConstantInt *C0 = dyn_cast<ConstantInt>(Op0);
+        ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
+        if(!C0 && C1) {
+          uint32_t lval = C1->getZExtValue();
+          Instruction *NewInst = BinaryOperator::Create(
+              Instruction::UDiv, Op0,
+              ConstantInt::get(Op0->getType(), (1 << lval)));
+          ReplaceInstWithInst((&I), NewInst);
+          continue;
+        }
       }
 
       // change add %a 1~4 -> call incr
@@ -164,11 +187,12 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
         IRBuilder<> Builder(&I);
         Value *Op0 = I.getOperand(0);
         Value *Op1 = I.getOperand(1);
-        ConstantInt *C = dyn_cast<ConstantInt>(Op1);
+        ConstantInt *C0 = dyn_cast<ConstantInt>(Op0);
+        ConstantInt *C1 = dyn_cast<ConstantInt>(Op1);
 
         // check if the const is 1 to 4
-        if (C && (C->getValue() == 1 || C->getValue() == 2 ||
-                  C->getValue() == 3 || C->getValue() == 4)) {
+        if (!C0 && C1 && (C1->getValue() == 1 || C1->getValue() == 2 ||
+                  C1->getValue() == 3 || C1->getValue() == 4)) {
           LLVMContext &Ctx = I.getContext();
           FunctionType *FuncType;
           Module *M = I.getModule();
@@ -193,16 +217,16 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
           }
 
           // check the const
-          if (C->getValue() == 1) {
+          if (C1->getValue() == 1) {
             Value *Arg = Op0;
             Value *Call1 = Builder.CreateCall(FC, Arg);
             I.replaceAllUsesWith(Call1);
-          } else if (C->getValue() == 2) {
+          } else if (C1->getValue() == 2) {
             Value *Arg = Op0;
             Value *Call1 = Builder.CreateCall(FC, Arg);
             Value *Call2 = Builder.CreateCall(FC, Call1);
             I.replaceAllUsesWith(Call2);
-          } else if (C->getValue() == 3) {
+          } else if (C1->getValue() == 3) {
             Value *Arg = Op0;
             Value *Call1 = Builder.CreateCall(FC, Arg);
             Value *Call2 = Builder.CreateCall(FC, Call1);
@@ -219,8 +243,10 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
           I.eraseFromParent();
         }
       }
+      
     }
   }
+  
   return PreservedAnalyses::all();
 }
 

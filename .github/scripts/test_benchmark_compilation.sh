@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LLVM_DIR=/opt/llvm/bin/
+LLVM_DIR=~/llvm-swpp/bin
 ALIVE_TV_BINARY=$(realpath "$1"/alive-tv)
 
 git clone https://github.com/snu-sf-class/swpp202301-benchmarks
