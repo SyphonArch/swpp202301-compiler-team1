@@ -19,7 +19,7 @@
 ; CHECK-NEXT: ret void
 
 
-define void @baz(i32 %n, i32* %ptr1, i32* %ptr2) {
+define void @baz(i32 noundef %n, i32* noundef %ptr1, i32* noundef %ptr2) {
   %i = alloca i32
   store i32 0, i32* %i
   br label %loop

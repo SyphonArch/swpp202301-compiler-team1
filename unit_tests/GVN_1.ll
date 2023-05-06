@@ -7,7 +7,7 @@
 ; CHECK-NEXT: [[result:%.*]] = add i32 [[sum]], [[val1]]
 ; CHECK-NEXT: ret i32 [[result]]
 
-define i32 @foo(i32* %ptr) {
+define i32 @foo(i32* noundef %ptr) {
   %val1 = load i32, i32* %ptr
   %val2 = load i32, i32* %ptr
   %val3 = load i32, i32* %ptr
