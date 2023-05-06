@@ -6,6 +6,7 @@
 #include "print_ir.h"
 
 #include "./opt/arithmetic_pass.h"
+#include "./opt/add_to_sum.h"
 
 using namespace std::string_literals;
 
@@ -27,6 +28,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add loop-level opt passes below
 
     // Add function-level opt passes below
+    FPM.addPass(add_to_sum::AddToSum());
 
     FPM.addPass(arithmetic_pass::ArithmeticPass());
 
