@@ -4,7 +4,6 @@
 #include "llvm/Analysis/CGSCCPassManager.h"
 
 #include "print_ir.h"
-
 #include "./opt/gvn_pass.h"
 
 using namespace std::string_literals;
