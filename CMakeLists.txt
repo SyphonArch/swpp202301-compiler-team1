@@ -103,6 +103,7 @@ add_opt_pass(GVNpass gvn_pass.cpp)
 add_opt_pass(BiasToFalseBranch bias_to_false_branch.cpp)
 add_opt_pass(AddToSum add_to_sum.cpp)
 add_opt_pass(ArithmeticPass arithmetic_pass.cpp)
+add_opt_pass(UseAsyncLoad use_async_load.cpp)
 
 # /================== DO NOT EDIT BELOW ==================/
 add_library(SCOpt ${SRC_DIR}/lib/opt.cpp)
