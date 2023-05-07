@@ -4,12 +4,11 @@
 #include "llvm/Analysis/CGSCCPassManager.h"
 
 #include "print_ir.h"
-#include "./opt/gvn_pass.h"
 
-#include "./opt/arithmetic_pass.h"
 #include "./opt/add_to_sum.h"
-
+#include "./opt/arithmetic_pass.h"
 #include "./opt/bias_to_false_branch.h"
+#include "./opt/gvn_pass.h"
 
 using namespace std::string_literals;
 
@@ -31,14 +30,10 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add loop-level opt passes below
 
     // Add function-level opt passes below
-    FPM.addPass(bias_to_false_branch::BiasToFalseBranch());
-
     FPM.addPass(gvn_pass::GVNpass());
-
+    FPM.addPass(bias_to_false_branch::BiasToFalseBranch());
     FPM.addPass(add_to_sum::AddToSum());
-
     FPM.addPass(arithmetic_pass::ArithmeticPass());
-
 
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
     // Add CGSCC-level opt passes below
