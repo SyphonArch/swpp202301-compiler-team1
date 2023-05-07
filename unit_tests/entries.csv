@@ -1,2 +1,4 @@
 Source Name,Class Name,Pass Name,Unit Test Prefix
-demopropinteq,DemoPropagateIntegerEquality,demo-prop-int-eq,demopropinteq
+gvn_pass,GVNpass,gvn-pass,GVN
+arithmetic_pass,ArithmeticPass,arithmetic-pass,arithmetic_pass
+add_to_sum,AddToSum,add-to-sum,add_to_sum
