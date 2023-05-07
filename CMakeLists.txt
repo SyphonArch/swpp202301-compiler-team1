@@ -99,7 +99,12 @@ endfunction()
 
 # /================= ADD OPT PASSES BELOW ================/
 
+
+add_opt_pass(GVNpass gvn_pass.cpp)
 add_opt_pass(AddToSum add_to_sum.cpp)
+
+=======
+add_opt_pass(ArithmeticPass arithmetic_pass.cpp)
 add_opt_pass(UseAsyncLoad use_async_load.cpp)
 
 # /================== DO NOT EDIT BELOW ==================/
