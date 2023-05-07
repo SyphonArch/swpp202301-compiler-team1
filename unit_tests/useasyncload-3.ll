@@ -31,21 +31,21 @@ entry:
 ; CHECK-NEXT:   store i32 3, i32* %ptrb, align 4
 ; CHECK-NEXT:   store i32 5, i32* %ptrc, align 4
 ; CHECK-NEXT:   [[VAL0:%.*]] = call i32 @aload_i32(i32* %ptra)
-; CHECK-NEXT:   %b = load i32, i32* %ptrb, align 4
-; CHECK-NEXT:   [[VAL1:%.*]] = call i32 @aload_i32(i32* %ptrc)
-; CHECK-NEXT:   %e = add i32 %b, [[VAL0]]
-; CHECK-NEXT:   %h = mul i32 1, 1
-; CHECK-NEXT:   %f = add i32 0, 0
+; CHECK-NEXT:   [[VAL1:%.*]] = call i32 @aload_i32(i32* %ptrb)
+; CHECK-NEXT:   [[VAL2:%.*]] = call i32 @aload_i32(i32* %ptrc)
 ; CHECK-NEXT:   %ptrz = alloca i32, align 4
 ; CHECK-NEXT:   store i32 7, i32* %ptrz, align 4
-; CHECK-NEXT:   [[VAL2:%.*]] = call i32 @aload_i32(i32* %ptrz)
-; CHECK-NEXT:   %g = add i32 [[VAL1]], [[VAL1]]
+; CHECK-NEXT:   [[VAL3:%.*]] = call i32 @aload_i32(i32* %ptrz)
+; CHECK-NEXT:   %g = add i32 [[VAL2]], [[VAL2]]
 ; CHECK-NEXT:   %d = add i32 [[VAL0]], [[VAL0]]
 ; CHECK-NEXT:   store i32 %d, i32* %ptra, align 4
-; CHECK-NEXT:   %zz = mul i32 [[VAL2]], [[VAL2]]
+; CHECK-NEXT:   %f = add i32 0, 0
+; CHECK-NEXT:   %h = mul i32 1, 1
+; CHECK-NEXT:   %e = add i32 [[VAL1]], [[VAL0]]
+; CHECK-NEXT:   %zz = mul i32 [[VAL3]], [[VAL3]]
 ; CHECK-NEXT:   ret void
 ; CHECK-NEXT:   }
 
 declare i32 @aload_i32(i32*)
 
-; case 3: multiple load replaced, dependent instructions below. check for unchanged load
+; case 3: multiple load replaced, dependent instructions below.
