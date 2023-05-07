@@ -99,11 +99,12 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
       Value *loadPtr = loadInst->getPointerOperand();
       Instruction *priorLoadInst = loadInst->getPrevNode();
 
-      // Find loadInst, starting from BB.begin(). Move up if priorLoadInst (1) is not a load / store instruction. (2) does not define loadPtr.
+      // Find loadInst, starting from BB.begin(). Move up if priorLoadInst (1) is not a load / store / PHINode instruction. (2) does not define loadPtr.
       // For Later: Optimize relative order of load instructions? Currently, initial ordering of load instructions is left unchanged.
       while (priorLoadInst) {
         if (dyn_cast<StoreInst>(priorLoadInst) ||
-            dyn_cast<LoadInst>(priorLoadInst))
+            dyn_cast<LoadInst>(priorLoadInst) ||
+            dyn_cast<PHINode>(priorLoadInst))
           break;
         if (loadPtr == priorLoadInst)
           break;
@@ -135,9 +136,10 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
         Instruction *indepInst = &J;
         Instruction *priorIndepInst = indepInst->getPrevNode();
 
-        // Move up if (1) priorIndepInst is not used in indepInst (2) priorIndepInst is not a load instruction
+        // Move up if (1) priorIndepInst is not used in indepInst (2) priorIndepInst is not a load / PHINode instruction
         while (priorIndepInst) {
-          if (dyn_cast<LoadInst>(priorIndepInst))
+          if (dyn_cast<LoadInst>(priorIndepInst) ||
+          dyn_cast<PHINode>(priorIndepInst))
             break;
           bool usesPriorIndepInst = false;
           for (const Use &Op : indepInst->operands()) {
