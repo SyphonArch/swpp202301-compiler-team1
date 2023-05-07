@@ -55,8 +55,12 @@ void replaceWithAload(Instruction &I) {
   LoadInst *loadInst = dyn_cast<LoadInst>(&I);
   Value *loadPtr = loadInst->getPointerOperand();
   Type *Ty = loadInst->getType();
+  if(loadPtr == nullptr || Ty == nullptr)
+    return;
   IntegerType *ITy = dyn_cast<IntegerType>(Ty);
   PointerType *PtrTy = PointerType::get(Ty, 0);
+  if(ITy == nullptr || PtrTy == nullptr)
+    return;
   unsigned bitWidth = ITy->getIntegerBitWidth();
   std::string BitWidthString = std::to_string(bitWidth);
 
