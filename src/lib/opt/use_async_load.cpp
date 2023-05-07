@@ -174,7 +174,7 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
           if (Op.get() == loadInst)
             isLoadInstUsed = true;
         }
-        if (isLoadInstUsed)
+        if (isLoadInstUsed || sumMinCost > 5)
           break;
         sumMinCost += getMinCost(&J);
       }
