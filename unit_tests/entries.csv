@@ -1,2 +1,5 @@
 Source Name,Class Name,Pass Name,Unit Test Prefix
+gvn_pass,GVNpass,gvn-pass,GVN
 bias_to_false_branch,BiasToFalseBranch,bias-to-false-branch,bias_to_false_branch
+arithmetic_pass,ArithmeticPass,arithmetic-pass,arithmetic_pass
+add_to_sum,AddToSum,add-to-sum,add_to_sum
