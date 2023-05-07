@@ -104,7 +104,8 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
       while (priorLoadInst) {
         if (dyn_cast<StoreInst>(priorLoadInst) ||
             dyn_cast<LoadInst>(priorLoadInst) ||
-            dyn_cast<PHINode>(priorLoadInst))
+            dyn_cast<PHINode>(priorLoadInst) ||
+            priorLoadInst->mayReadOrWriteMemory())
           break;
         if (loadPtr == priorLoadInst)
           break;
@@ -139,7 +140,8 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
         // Move up if (1) priorIndepInst is not used in indepInst (2) priorIndepInst is not a load / PHINode instruction
         while (priorIndepInst) {
           if (dyn_cast<LoadInst>(priorIndepInst) ||
-          dyn_cast<PHINode>(priorIndepInst))
+          dyn_cast<PHINode>(priorIndepInst) ||
+          priorIndepInst->mayReadOrWriteMemory())
             break;
           bool usesPriorIndepInst = false;
           for (const Use &Op : indepInst->operands()) {
