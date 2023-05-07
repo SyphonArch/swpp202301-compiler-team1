@@ -32,11 +32,9 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add function-level opt passes below
 
     FPM.addPass(gvn_pass::GVNpass());
-
     FPM.addPass(add_to_sum::AddToSum());
-    FPM.addPass(use_async_load::UseAsyncLoad());
-
     FPM.addPass(arithmetic_pass::ArithmeticPass());
+    FPM.addPass(use_async_load::UseAsyncLoad());
 
 
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
