@@ -2,8 +2,8 @@
 define void @f(i32 %x, i32 %y) {
 entry:
   %ptr = alloca i32
-  store i32 1, ptr %ptr
-  %a = load i32, ptr %ptr
+  store i32 1, i32* %ptr
+  %a = load i32, i32* %ptr
   %b = add i32 %a, %a
   %c = add i32 %b, %a
   %d = add i32 0, 0
@@ -17,8 +17,8 @@ entry:
 ; CHECK: define void @f(i32 %x, i32 %y) {
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: %ptr = alloca i32, align 4
-; CHECK-NEXT: store i32 1, ptr %ptr, align 4
-; CHECK-NEXT: [[VAL:%.*]] = call i32 @aload_i32(ptr %ptr)
+; CHECK-NEXT: store i32 1, i32* %ptr, align 4
+; CHECK-NEXT: [[VAL:%.*]] = call i32 @aload_i32(i32* %ptr)
 ; CHECK-NEXT: %h = mul i32 2, 2
 ; CHECK-NEXT: %e = add i32 1, 1
 ; CHECK-NEXT: %d = add i32 0, 0
@@ -29,6 +29,6 @@ entry:
 ; CHECK-NEXT: ret void
 ; CHECK-NEXT: }
 
-declare i32 @aload_i32(ptr)
+declare i32 @aload_i32(i32*)
 
 ; case 2 : single load replaced, CHECK-NEXT for cost before use

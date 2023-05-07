@@ -32,7 +32,7 @@ int getMinCost(Instruction *I) {
   } else if (Op == llvm::Instruction::Add || Op == llvm::Instruction::Sub ||
              I->mayReadOrWriteMemory() && !(Op == llvm::Instruction::Load)) {
     return 5;
-  } else if (auto *call = llvm::dyn_cast<llvm::CallInst>(I)) {
+  } else if (auto *call = dyn_cast<CallInst>(I)) {
     llvm::Function *fun = call->getCalledFunction();
     assert(fun);
     StringRef name = fun->getName();
@@ -57,8 +57,8 @@ void replaceWithAload(Instruction &I) {
   Type *Ty = loadInst->getType();
   IntegerType *ITy = dyn_cast<IntegerType>(Ty);
   PointerType *PtrTy = PointerType::get(Ty, 0);
-  unsigned BitWidth = ITy->getIntegerBitWidth();
-  std::string BitWidthString = std::to_string(BitWidth);
+  unsigned bitWidth = ITy->getIntegerBitWidth();
+  std::string BitWidthString = std::to_string(bitWidth);
 
   IRBuilder<> Builder(&I);
   LLVMContext &Ctx = I.getContext();
@@ -68,7 +68,8 @@ void replaceWithAload(Instruction &I) {
   FunctionType *FuncType = FunctionType::get(ITy, {PtrTy}, false);
   FunctionCallee FC =
       M->getOrInsertFunction("aload_i" + BitWidthString, FuncType);
-  Value *Call = Builder.CreateCall(FC, Ptr);
+  ArrayRef<Value *> args = llvm::makeArrayRef(Ptr);
+  Value *Call = Builder.CreateCall(FC, args);
   I.replaceAllUsesWith(Call);
   I.eraseFromParent();
 }
@@ -83,6 +84,8 @@ namespace sc::opt::use_async_load {
 PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
   DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
   for (BasicBlock &BB : F) {
+    if(BB.empty())
+      continue;
     // Part 1 : Move load instructions up
     for (Instruction &I : BB) {
       if (!dyn_cast<LoadInst>(&I))
