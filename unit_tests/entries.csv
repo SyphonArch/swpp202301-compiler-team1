@@ -4,3 +4,4 @@ bias_to_false_branch,BiasToFalseBranch,bias-to-false-branch,bias_to_false_branch
 add_to_sum,AddToSum,add-to-sum,add_to_sum
 arithmetic_pass,ArithmeticPass,arithmetic-pass,arithmetic_pass
 use_async_load,UseAsyncLoad,use-async-load,useasyncload
+gep_eliminate,GEPEliminatePass,gep_elim,gep_elim

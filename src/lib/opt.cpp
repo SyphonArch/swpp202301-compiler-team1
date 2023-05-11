@@ -10,6 +10,7 @@
 #include "./opt/add_to_sum.h"
 #include "./opt/arithmetic_pass.h"
 #include "./opt/use_async_load.h"
+#include "./opt/gep_eliminate.h"
 
 using namespace std::string_literals;
 
@@ -31,6 +32,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add loop-level opt passes below
 
     // Add function-level opt passes below
+
     FPM.addPass(gvn_pass::GVNpass());
     FPM.addPass(bias_to_false_branch::BiasToFalseBranch());
     FPM.addPass(add_to_sum::AddToSum());
@@ -42,6 +44,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
 
     MPM.addPass(llvm::createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
     // Add module-level opt passes below
+    MPM.addPass(gep_elim::GEPEliminatePass());
 
     MPM.run(*__M, __MAM);
     sc::print_ir::printIRIfVerbose(*__M, "After optimization");
