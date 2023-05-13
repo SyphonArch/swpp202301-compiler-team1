@@ -1,6 +1,9 @@
 #include "gep_eliminate.h"
 
+#include "llvm/Pass.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Operator.h"
 #include "arithmetic_pass.h"
 #include "llvm/IR/IRBuilder.h"
@@ -12,6 +15,9 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/IR/InstIterator.h"
 
 using namespace llvm;
 using namespace std;
@@ -73,14 +79,15 @@ PreservedAnalyses GEPEliminatePass::run(llvm::Module &M, llvm::ModuleAnalysisMan
                 break;
             }
 
-//            const auto sizeconst = size;
-            llvm::Instruction *mul = llvm::BinaryOperator::CreateMul(
-                op, llvm::ConstantInt::get(Int64Ty, 8UL, true), "", GEPI);
-/*
-            llvm::Instruction *add =
-                llvm::BinaryOperator::CreateAdd(v.back(), mul, "", GEPI);
-            v.push_back(add);
-*/
+            if (op->getType() == llvm::ConstantInt::get(Int64Ty, size, true)->getType()) {
+              llvm::Instruction *mul = llvm::BinaryOperator::CreateMul(
+                  op, llvm::ConstantInt::get(Int64Ty, size, true), "", GEPI);
+              llvm::Instruction *add =
+                  llvm::BinaryOperator::CreateAdd(v.back(), mul, "", GEPI);
+              v.push_back(add);
+            } else {
+              ck = 1;
+            }
           }
 
           if(ck == 1) continue;
@@ -94,7 +101,25 @@ PreservedAnalyses GEPEliminatePass::run(llvm::Module &M, llvm::ModuleAnalysisMan
     for (llvm::GetElementPtrInst *I : trashBin)
       I->eraseFromParent();
   }
-  
+  /*
+  for (llvm::Function &F : M) {
+    for (Function::iterator bb = F.begin(), e = F.end(); bb != e; ++bb) {
+      
+        if (auto *loop = dyn_cast<Loop>(bb)) {
+          
+            BasicBlock *header = loop->getHeader();
+            for (auto it = header->begin(); it != header->end(); ++it) {
+                if (PHINode *phi = dyn_cast<PHINode>(&*it)) {
+                    PHINode *newPhi = PHINode::Create(phi->getType(), phi->getNumIncomingValues(), "", &*phi);
+                    for (unsigned i = 0; i < phi->getNumIncomingValues(); ++i) {
+                        newPhi->addIncoming(phi->getIncomingValue(i), phi->getIncomingBlock(i));
+                    }
+                }
+            }
+        }       
+    }
+  }
+  */
   return llvm::PreservedAnalyses::all();
 }
 
