@@ -58,45 +58,47 @@ static void cloneFunctionInto(Function *Src, Function *Dest,
   }
 }
 
-static void splice(BasicBlock &B, BasicBlock::iterator InsertPt,
-                   BasicBlock &BB, BasicBlock::iterator FromBeginIt, BasicBlock::iterator FromEndIt) {
+static void splice(BasicBlock &B, BasicBlock::iterator InsertPt, BasicBlock &BB,
+                   BasicBlock::iterator FromBeginIt,
+                   BasicBlock::iterator FromEndIt) {
   B.getInstList().splice(InsertPt, BB.getInstList(), FromBeginIt, FromEndIt);
 }
 
 /// Return the result of AI->isStaticAlloca() if AI were moved to the entry
 /// block.
-static bool allocaWouldBeStaticInEntry(const AllocaInst *AI ) {
+static bool allocaWouldBeStaticInEntry(const AllocaInst *AI) {
   return isa<Constant>(AI->getArraySize()) && !AI->isUsedWithInAlloca();
 }
 
-static void moveStaticAllocasUpIfExists(Function *Caller, Function::iterator &FirstNewBlock) {
+static void moveStaticAllocasUpIfExists(Function *Caller,
+                                        Function::iterator &FirstNewBlock) {
   // If there are any alloca instructions in the block that used to be the entry
   // block for the callee, move them to the entry block of the caller.
-  
-  // Calculate which instruction they should be inserted before. We insert 
+
+  // Calculate which instruction they should be inserted before. We insert
   // the instructions at the end of the current alloca list.
   BasicBlock::iterator InsertPoint = Caller->begin()->begin();
   for (BasicBlock::iterator I = FirstNewBlock->begin(),
-        E = FirstNewBlock->end(); I != E; ) {
+                            E = FirstNewBlock->end();
+       I != E;) {
     AllocaInst *AI = dyn_cast<AllocaInst>(I++);
-    if (!AI) continue;
+    if (!AI)
+      continue;
 
     if (!allocaWouldBeStaticInEntry(AI))
       continue;
 
     // Scan for the block of allocas that we can move over, and move them
     // all at once.
-    while (isa<AllocaInst>(I) &&
-            !cast<AllocaInst>(I)->use_empty() &&
-            allocaWouldBeStaticInEntry(cast<AllocaInst>(I))) {
+    while (isa<AllocaInst>(I) && !cast<AllocaInst>(I)->use_empty() &&
+           allocaWouldBeStaticInEntry(cast<AllocaInst>(I))) {
       ++I;
     }
 
     // Transfer all of the allocas over in a block.
     splice(Caller->getEntryBlock(), InsertPoint, *FirstNewBlock,
-                                    AI->getIterator(), I);
+           AI->getIterator(), I);
   }
-
 }
 
 // Merge the inlined function's basic blocks into the caller function
@@ -134,11 +136,12 @@ static void mergeToCallSite(CallInst *CI, Function::iterator &FirstNewBlock,
   }
 
   // Now, deal with the case of multiple basic blocks in the Callee.
-  // First, split the basic block into [basic block before call] and [after call].
-  // Second, set the branch in the [basic block before call] to the cloned function
-  // Third, merge the return block with the [basic block after call].
-  // Fourth, set the branch `to` the return block to the [basic block after call].
-  // Fifth, replace the call instruction and remove the return instruction.
+  // First, split the basic block into [basic block before call] and [after
+  // call]. Second, set the branch in the [basic block before call] to the
+  // cloned function Third, merge the return block with the [basic block after
+  // call]. Fourth, set the branch `to` the return block to the [basic block
+  // after call]. Fifth, replace the call instruction and remove the return
+  // instruction.
 
   // Split the basic block to before call and after call.
   BasicBlock *AfterCallBB =
@@ -147,16 +150,17 @@ static void mergeToCallSite(CallInst *CI, Function::iterator &FirstNewBlock,
   // Set the branch instruction to the cloned function
   Instruction *Br = OrigBB->getTerminator();
   Br->setOperand(0, &*FirstNewBlock);
-  
-  LLVM_DEBUG(dbgs() << "Caller after setting initial branch:\n" << *CI->getFunction() << "\n");
+
+  LLVM_DEBUG(dbgs() << "Caller after setting initial branch:\n"
+                    << *CI->getFunction() << "\n");
 
   // Merge the return block with the AfterCallBB.
   BasicBlock *ReturnBB = Returns[0]->getParent();
   AfterCallBB->getInstList().splice(AfterCallBB->begin(),
-                                ReturnBB->getInstList());
+                                    ReturnBB->getInstList());
 
   // Set branch instruction to return basic block to AfterCallBB
-  ReturnBB->replaceAllUsesWith(AfterCallBB); 
+  ReturnBB->replaceAllUsesWith(AfterCallBB);
 
   // Replace the uses of call instruction to the return instructions
   if (!CI->use_empty()) {
@@ -164,13 +168,11 @@ static void mergeToCallSite(CallInst *CI, Function::iterator &FirstNewBlock,
     CI->replaceAllUsesWith(R->getReturnValue());
   }
 
-  // Remove the call instruction and the return instruction of the inlined                              
+  // Remove the call instruction and the return instruction of the inlined
   Returns[0]->eraseFromParent();
   ReturnBB->eraseFromParent();
   CI->eraseFromParent();
-
 }
-
 
 // Inline the callee function into the caller function
 static void inlineFunction(CallInst *CI, Function &Callee) {
@@ -191,13 +193,12 @@ static void inlineFunction(CallInst *CI, Function &Callee) {
   Function::iterator FirstNewBlock = LastBlock;
   ++FirstNewBlock;
 
-  // Move static allocas up. Assume all allocas are static, because 
+  // Move static allocas up. Assume all allocas are static, because
   // this machine does not handle other than static allocas in the backend.
   moveStaticAllocasUpIfExists(Caller, FirstNewBlock);
 
   // Merge the inlined function's basic blocks into the caller function
   mergeToCallSite(CI, FirstNewBlock, Returns);
-
 }
 
 void getReturns(Function *F, SmallVectorImpl<ReturnInst *> &Returns) {
@@ -214,12 +215,13 @@ void getReturns(Function *F, SmallVectorImpl<ReturnInst *> &Returns) {
 bool shouldInline(CallInst *CI) {
   // Check conditions of the Caller and Callee to execute inlining.
   Function *Callee = CI->getCalledFunction();
-  
+
   if (!Callee || Callee->isDeclaration()) {
     return false;
   }
 
-  // Check if the function is recursive (i.e., the callee is the same as the caller)
+  // Check if the function is recursive (i.e., the callee is the same as the
+  // caller)
   if (Callee == CI->getFunction()) {
     return false;
   }
@@ -244,8 +246,7 @@ bool shouldInline(CallInst *CI) {
   return true;
 }
 
-PreservedAnalyses FunctionInlining::run(Module &M,
-                                        ModuleAnalysisManager &MAM) {
+PreservedAnalyses FunctionInlining::run(Module &M, ModuleAnalysisManager &MAM) {
   for (Function &F : M) {
     std::vector<CallInst *> callInstsToInline;
     // Gather all call instructions in the container
@@ -260,8 +261,8 @@ PreservedAnalyses FunctionInlining::run(Module &M,
     // Process each call instruction
     for (auto it = callInstsToInline.begin(); it != callInstsToInline.end();) {
       CallInst *CI = *it;
-      ++it; // Increment the iterator before inlining, since inlining invalidates
-            // the iterator
+      ++it; // Increment the iterator before inlining, since inlining
+            // invalidates the iterator
 
       Function *Callee = CI->getCalledFunction();
       inlineFunction(CI, *Callee);
