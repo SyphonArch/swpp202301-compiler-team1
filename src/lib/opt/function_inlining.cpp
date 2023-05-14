@@ -1,5 +1,6 @@
 #include "function_inlining.h"
 
+#include "./register_pressure.cpp"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -237,9 +238,16 @@ bool shouldInline(CallInst *CI) {
     return false;
   }
 
-  // Hard limit: code length 500.
+  // Hard limit: code length 3000.
   unsigned int totalInstructions = Callee->size() + CI->getFunction()->size();
-  if (totalInstructions > 500) {
+  if (totalInstructions > 3000) {
+    return false;
+  }
+
+  // Hard limit: register pressure 32.
+  unsigned int calleeRegisterPressure = calculateRegisterPressure(*Callee);
+  unsigned int callerRegisterPressure = calculateRegisterPressure(*CI->getFunction());
+  if (calleeRegisterPressure + callerRegisterPressure > 32) {
     return false;
   }
 
@@ -247,12 +255,15 @@ bool shouldInline(CallInst *CI) {
 }
 
 PreservedAnalyses FunctionInlining::run(Module &M, ModuleAnalysisManager &MAM) {
+
+  bool Changed = false;  
   for (Function &F : M) {
     std::vector<CallInst *> callInstsToInline;
     // Gather all call instructions in the container
     for (auto &I : instructions(F)) {
       if (auto *CI = dyn_cast<CallInst>(&I)) {
         if (shouldInline(CI)) {
+          Changed = true;
           callInstsToInline.push_back(CI);
         }
       }
@@ -270,7 +281,11 @@ PreservedAnalyses FunctionInlining::run(Module &M, ModuleAnalysisManager &MAM) {
 
     LLVM_DEBUG(dbgs() << "After Function Inlining Pass\n" << F << "\n");
   }
-  return PreservedAnalyses::none();
+
+  if (Changed)
+    return PreservedAnalyses::none();
+  else
+    return PreservedAnalyses::all();
 };
 
 extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
