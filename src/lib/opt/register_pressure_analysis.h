@@ -8,7 +8,8 @@ using namespace std;
 using namespace llvm;
 
 namespace sc::opt::register_pressure_analysis {
-class RegisterPressureAnalysis : public PassInfoMixin<RegisterPressureAnalysis> {
+class RegisterPressureAnalysis
+    : public PassInfoMixin<RegisterPressureAnalysis> {
 public:
   uint64_t run(Function &F, FunctionAnalysisManager &FAM);
 };

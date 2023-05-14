@@ -30,11 +30,22 @@ for entry in entries:
         ll_path = f"{ll_files_dir}/{ll_file}"
 
         print(f"Test file: \t{ll_path}")
+
         # Run opt with the pass shared library
-        opt_cmd = [f"{llvm_path}/bin/opt", f"-load-pass-plugin=./build/{pass_lib}", f"-passes={passname}",
+        if sourcename.endswith('analysis'):
+            cmd = f"\t{llvm_path}/bin/opt -load-pass-plugin=./build/{pass_lib} -passes={passname}" \
+                   f" {ll_path} -S -disable-output 2>&1 | {llvm_path}/bin/FileCheck {ll_path}"
+            print(cmd)
+            result = os.system(cmd)
+            if result != 0:
+                failures = True
+            continue
+            
+        else:
+            opt_cmd = [f"{llvm_path}/bin/opt", f"-load-pass-plugin=./build/{pass_lib}", f"-passes={passname}",
                    ll_path, "-S", "-o", f"./tmp/out.{ll_file}"]
-        print(f"\t{' '.join(opt_cmd)}")
-        subprocess.run(opt_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            print(f"\t{' '.join(opt_cmd)}")
+            subprocess.run(opt_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # Run filecheck on the output
         filecheck_cmd = [f"{llvm_path}/bin/FileCheck", ll_path]
