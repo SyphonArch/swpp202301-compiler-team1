@@ -10,6 +10,7 @@
 #include "./opt/add_to_sum.h"
 #include "./opt/arithmetic_pass.h"
 #include "./opt/use_async_load.h"
+#include "./opt/function_inlining.h"
 
 using namespace std::string_literals;
 
@@ -41,6 +42,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add CGSCC-level opt passes below
 
     MPM.addPass(llvm::createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
+    MPM.addPass(function_inlining::FunctionInlining());
     // Add module-level opt passes below
 
     MPM.run(*__M, __MAM);
