@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import shutil
 
 passes_dir = './src/lib/opt'
 ll_files_dir = './unit_tests'
@@ -13,12 +14,11 @@ alive_tv_binary = sys.argv[2]
 dir_path = os.path.dirname(os.path.realpath(__file__))
 # change the current working directory to the directory of the current file
 os.chdir(dir_path)
-os.makedirs('./tmp', exist_ok=True)
-
+shutil.rmtree(temp_dir_path)
+os.makedirs(temp_dir_path, exist_ok=True)
 
 with open(f'{ll_files_dir}/entries.csv', 'r') as f:
     entries = [entry.split(',') for entry in f.read().strip().split('\n')[1:]]
-
 
 failures = False
 
@@ -49,7 +49,7 @@ for entry in entries:
         if result.returncode != 0:
             print(result.stderr.decode("utf-8"))
             failures = True
-        
+
         # Run alive2 validation on the output
         alive2_cmd = [alive_tv_binary, ll_path, f"./tmp/out.{ll_file}"]
         print(f"\t{' '.join(alive2_cmd)}")
