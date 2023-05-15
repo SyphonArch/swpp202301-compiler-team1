@@ -123,6 +123,20 @@ PreservedAnalyses GEPEliminatePass::run(llvm::Module &M,
     }
   }
   */
+ /*
+     auto &MSSA = getAnalysis<MemorySSAWrapperPass>().getMSSA();
+
+    // Get pointers to the variables we want to check
+    auto *I1 = dyn_cast<Instruction>(F.getEntryBlock().getFirstNonPHI());
+    auto *I2 = dyn_cast<Instruction>(F.getEntryBlock().getTerminator());
+
+    // Get the memory locations accessed by each variable
+    auto *Loc1 = MSSA.getMemoryAccess(I1)->getMemoryLocation();
+    auto *Loc2 = MSSA.getMemoryAccess(I2)->getMemoryLocation();
+
+    // Check if the memory locations are the same
+    bool Aliased = Loc1 == Loc2;
+    */
   return llvm::PreservedAnalyses::all();
 }
 
