@@ -36,7 +36,15 @@ for line in "${lines[@]}"; do
                 -passes=${PASS_NAME} \
                 -S -o ${ll_file}.out
 
-            ${ALIVE_TV_BINARY} ${ll_file} ${ll_file}.out --quiet || exit 1
+            alive_output=$(${ALIVE_TV_BINARY} ${ll_file} ${ll_file}.out --quiet)
+
+            echo "$alive_output"
+
+            if [ $? -ne 0 ] || \
+               [[ ! $alive_output =~ "0 incorrect transformations" ]] || \
+               [[ ! $alive_output =~ "0 Alive2 errors" ]]; then
+                exit 1
+            fi
         fi
     done
 done
