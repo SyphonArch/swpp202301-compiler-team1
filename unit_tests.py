@@ -4,6 +4,8 @@ import sys
 
 passes_dir = './src/lib/opt'
 ll_files_dir = './unit_tests'
+temp_dir_path = './tmp'
+
 llvm_path = sys.argv[1]
 alive_tv_binary = sys.argv[2]
 
@@ -34,7 +36,9 @@ for entry in entries:
         opt_cmd = [f"{llvm_path}/bin/opt", f"-load-pass-plugin=./build/{pass_lib}", f"-passes={passname}",
                    ll_path, "-S", "-o", f"./tmp/out.{ll_file}"]
         print(f"\t{' '.join(opt_cmd)}")
-        subprocess.run(opt_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(opt_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        with open(f"{temp_dir_path}/out.{ll_file}.log", 'w') as f:
+            f.write(result.stdout.decode("utf-8"))
 
         # Run filecheck on the output
         filecheck_cmd = [f"{llvm_path}/bin/FileCheck", ll_path]
@@ -50,7 +54,7 @@ for entry in entries:
         alive2_cmd = [alive_tv_binary, ll_path, f"./tmp/out.{ll_file}"]
         print(f"\t{' '.join(alive2_cmd)}")
         result = subprocess.run(alive2_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        
+
         if result.returncode != 0:
             print(result.stderr.decode("utf-8"))
             failures = True
