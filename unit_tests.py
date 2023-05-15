@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import shutil
+import re
 
 passes_dir = './src/lib/opt'
 ll_files_dir = './unit_tests'
@@ -21,6 +22,12 @@ with open(f'{ll_files_dir}/entries.csv', 'r') as f:
     entries = [entry.split(',') for entry in f.read().strip().split('\n')[1:]]
 
 failures = False
+
+alive2_pattern = re.compile(r'Summary:\n'
+                            r'\s*(\d+) correct transformations\n'
+                            r'\s*(\d+) incorrect transformations\n'
+                            r'\s*(\d+) failed-to-prove transformations\n'
+                            r'\s*(\d+) Alive2 errors')
 
 for entry in entries:
     sourcename, classname, passname, testname = entry
@@ -54,10 +61,29 @@ for entry in entries:
         alive2_cmd = [alive_tv_binary, ll_path, f"./tmp/out.{ll_file}"]
         print(f"\t{' '.join(alive2_cmd)}")
         result = subprocess.run(alive2_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        with open(f"{temp_dir_path}/out.{ll_file}.alive", 'w') as f:
+            f.write(result.stdout.decode("utf-8"))
+
+        match_result = alive2_pattern.findall(result.stdout.decode('utf-8'))
+        assert len(match_result) == 1
+        alive_correct, alive_incorrect, alive_failed_to_prove, alive_error = map(int, match_result[0])
+
+        if alive_incorrect:
+            print(f'Alive2 incorrect: {alive_incorrect}')
+            failures = True
+
+        if alive_failed_to_prove:
+            print(f'Alive2 failed to prove: {alive_failed_to_prove}')
+
+        if alive_error:
+            print(f'Alive2 error: {alive_error}')
+            failures = True
 
         if result.returncode != 0:
             print(result.stderr.decode("utf-8"))
             failures = True
+
+    print()
 
 # Exit with the appropriate exit code
 if failures:
