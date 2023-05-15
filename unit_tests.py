@@ -15,7 +15,7 @@ alive_tv_binary = sys.argv[2]
 dir_path = os.path.dirname(os.path.realpath(__file__))
 # change the current working directory to the directory of the current file
 os.chdir(dir_path)
-shutil.rmtree(temp_dir_path)
+shutil.rmtree(temp_dir_path, ignore_errors=True)
 os.makedirs(temp_dir_path, exist_ok=True)
 
 with open(f'{ll_files_dir}/entries.csv', 'r') as f:
