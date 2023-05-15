@@ -16,6 +16,7 @@ namespace sc::opt::loop_unrolling {
 class LoopUnrolling : public PassInfoMixin<LoopUnrolling> {
 public:
   PreservedAnalyses run(Function &val, FunctionAnalysisManager &FAM);
+  bool runOnLoop(Loop *L, ScalarEvolution &SE);
 };
 } // namespace sc::opt::loop_unrolling
 
