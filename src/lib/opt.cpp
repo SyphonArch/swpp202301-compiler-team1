@@ -2,6 +2,7 @@
 
 #include "../static_error.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
+#include "llvm/Transforms/Scalar/LoopPassManager.h"
 
 #include "print_ir.h"
 
@@ -11,8 +12,8 @@ using namespace std::string_literals;
 
 namespace sc::opt {
 OptInternalError::OptInternalError(const std::exception &__e) noexcept {
-    message = "exception thrown from opt\n"s + __e.what();
-  }
+  message = "exception thrown from opt\n"s + __e.what();
+}
 
 Result<std::unique_ptr<llvm::Module>, OptInternalError>
 optimizeIR(std::unique_ptr<llvm::Module> &&__M,
@@ -20,12 +21,14 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
   using RetType = Result<std::unique_ptr<llvm::Module>, OptInternalError>;
 
   try {
+    llvm::LoopPassManager LPM;
     llvm::FunctionPassManager FPM;
     llvm::CGSCCPassManager CGPM;
     llvm::ModulePassManager MPM;
 
     // Add loop-level opt passes below
 
+    FPM.addPass(llvm::createFunctionToLoopPassAdaptor(std::move(LPM)));
     // Add function-level opt passes below
     FPM.addPass(DemoPropagateIntegerEquality());
 

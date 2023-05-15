@@ -91,7 +91,7 @@ add_opt_pass(DemoPropagateIntegerEquality demopropinteq.cpp)
 # /================== DO NOT EDIT BELOW ==================/
 add_library(SCOpt ${SRC_DIR}/lib/opt.cpp)
 target_include_directories(SCOpt PRIVATE ${LLVM_INCLUDE_DIRS})
-llvm_map_components_to_libnames(opt_llvm_libs analysis passes)
+llvm_map_components_to_libnames(opt_llvm_libs analysis passes scalaropts transformutils)
 target_link_libraries(SCOpt PRIVATE SCPrintIR OptPasses ${opt_llvm_libs})
 
 set(PROJECT_LIB "SComp")
