@@ -107,8 +107,9 @@ PreservedAnalyses GEPEliminatePass::run(llvm::Module &M,
       I->eraseFromParent();
   }
 
-  //below here is unfinished!
-  //it will go through instructions and find chains that should be copied and make a new variable
+  // below here is unfinished!
+  // it will go through instructions and find chains that should be copied and
+  // make a new variable
 
   // now look for the values used in
   for (llvm::Function &F : M) {
@@ -130,14 +131,15 @@ PreservedAnalyses GEPEliminatePass::run(llvm::Module &M,
         PtrToIntInst *v1 = vec[i];
 
         // this variable checks whether if there is a chain that makes v1 +
-        // whether the chain is valid or not the chain can be invaild for following reasons
+        // whether the chain is valid or not the chain can be invaild for
+        // following reasons
         // 1. the chain has other operation that is not add
         // 1. the chain length is longer than 2
         // 2. the chain has add operation that is bigger than 3
 
         int is_there_chain_for_v1 = 0;
 
-        //this variable is used to check the length of the chain
+        // this variable is used to check the length of the chain
         int incr_value = 0;
 
         for (size_t j = 0; j < vec.size(); j++) {
@@ -239,7 +241,8 @@ PreservedAnalyses GEPEliminatePass::run(llvm::Module &M,
             }
 
             // if for loop ended with no problem, it means a vaild chain exists
-            // we might have to the instructions into a vec form, and do batch processing...
+            // we might have to the instructions into a vec form, and do batch
+            // processing...
           }
 
           // v2 is now checked
@@ -269,11 +272,6 @@ extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
           }};
 }
 }; // namespace sc::opt::gep_elim
-
-
-
-
-
 
 /*******plz ignore below*********
 
