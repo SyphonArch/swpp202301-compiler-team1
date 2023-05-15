@@ -11,5 +11,5 @@ class GEPEliminatePass : public llvm::PassInfoMixin<GEPEliminatePass> {
 public:
   PreservedAnalyses run(llvm::Module &, llvm::ModuleAnalysisManager &);
 };
-} // namespace sc::backend::gep_elim
+} // namespace sc::opt::gep_elim
 #endif // SC_BACKEND_GEP_ELIMINATE_H
