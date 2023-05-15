@@ -138,10 +138,14 @@ static void mergeToCallSite(CallInst *CI, Function::iterator &FirstNewBlock,
 
   // Now, deal with the case of multiple basic blocks in the Callee.
   // First, split the basic block into [basic block before call] and [after
-  // call]. Second, set the branch in the [basic block before call] to the
-  // cloned function Third, merge the return block with the [basic block after
-  // call]. Fourth, set the branch `to` the return block to the [basic block
-  // after call]. Fifth, replace the call instruction and remove the return
+  // call]. 
+  // Second, set the branch in the [basic block before call] to the
+  // cloned function 
+  // Third, merge the return block with the [basic block after
+  // call]. 
+  // Fourth, set the `branch to the return block` to the [basic block
+  // after call]. 
+  // Fifth, replace the call instruction and remove the return
   // instruction.
 
   // Split the basic block to before call and after call.
@@ -246,7 +250,8 @@ bool shouldInline(CallInst *CI) {
 
   // Hard limit: register pressure 32.
   unsigned int calleeRegisterPressure = calculateRegisterPressure(*Callee);
-  unsigned int callerRegisterPressure = calculateRegisterPressure(*CI->getFunction());
+  unsigned int callerRegisterPressure =
+      calculateRegisterPressure(*CI->getFunction());
   if (calleeRegisterPressure + callerRegisterPressure > 32) {
     return false;
   }
@@ -256,7 +261,7 @@ bool shouldInline(CallInst *CI) {
 
 PreservedAnalyses FunctionInlining::run(Module &M, ModuleAnalysisManager &MAM) {
 
-  bool Changed = false;  
+  bool Changed = false;
   for (Function &F : M) {
     std::vector<CallInst *> callInstsToInline;
     // Gather all call instructions in the container
