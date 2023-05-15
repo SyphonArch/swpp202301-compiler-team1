@@ -72,6 +72,9 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
           // Constants are always given a positive `sign` by flipping their
           // values, if necessary. (Of course the constant values themselves can
           // be negative.) Constants are also merged together for space.
+          if (cnst->isZero()) {
+            return;
+          }
           if (sign) {
             auto *negConst = dyn_cast<ConstantInt>(ConstantExpr::getNeg(cnst));
             assert(negConst);
