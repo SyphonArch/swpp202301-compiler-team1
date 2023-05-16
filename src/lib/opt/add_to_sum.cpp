@@ -314,6 +314,8 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     }
   }
 
+  /* ===== PHASE 6 ============================
+   * Shift operands down if possible */
   for (auto &sum_inst : SumInstructions) {
     for (int idx = 0; idx < sum_inst->getNumOperands(); ++idx) {
       Value *arg = sum_inst->getOperand(idx);
