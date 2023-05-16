@@ -3,48 +3,47 @@
 LLVM_DIR=/opt/llvm/bin/
 ALIVE_TV_BINARY=$(realpath "$1"/alive-tv)
 
+# Clone the benchmark repository
 git clone https://github.com/snu-sf-class/swpp202301-benchmarks
 cd swpp202301-benchmarks/
 
-# Build lls and ams
-python3 build-lls.py ${LLVM_DIR}
+# Build lls and asms
+python3 build-lls.py "${LLVM_DIR}"
 python3 build-asms.py ../build/swpp-compiler 2>&1 || exit 1
 
 # Read the CSV file (skipping the header)
-readarray -t lines < <(tail -n +2 ../unit_tests/entries.csv)
-
-# Loop through each line in the CSV file
-for line in "${lines[@]}"; do
-    # Parse the Pass Name and Class Name using awk
-    PASS_NAME=$(echo "$line" | awk -F, '{print $3}')
-    CLASS_NAME=$(echo "$line" | awk -F, '{print $2}')
+while IFS=, read -r _ CLASS_NAME PASS_NAME _; do
+    CLASS_NAMES+=("-load-pass-plugin=../build/lib${CLASS_NAME}.so")
+    PASS_NAMES+=("$PASS_NAME")
 
     # Print the variables to check the values
     echo "Pass Name: $PASS_NAME"
     echo "Class Name: $CLASS_NAME"
     echo "---"
+done < <(tail -n +2 ../unit_tests/entries.csv)
 
-    for dir in *; do
-        if [ -d "${dir}/src" ]; then
-            # Find the .ll file
-            ll_file=$(find "${dir}/src" -name "*.ll")
+PASS_NAMES_STR=$(IFS=,; echo "${PASS_NAMES[*]}")
 
-            echo "Checking ${ll_file}..."
+for dir in *; do
+    if [ -d "${dir}/src" ]; then
+        # Find the .ll file
+        ll_file=$(find "${dir}/src" -name "*.ll")
 
-            ${LLVM_DIR}/opt ${ll_file} \
-                -load-pass-plugin=../build/lib${CLASS_NAME}.so \
-                -passes=${PASS_NAME} \
-                -S -o ${ll_file}.out
+        echo "Checking ${ll_file}..."
 
-            alive_output=$(${ALIVE_TV_BINARY} ${ll_file} ${ll_file}.out --quiet)
+        # Run LLVM opt command with the appropriate arguments
+        ${LLVM_DIR}/opt "${ll_file}" "${CLASS_NAMES[@]}" -passes="${PASS_NAMES_STR}" -S -o "${ll_file}.out"
 
-            echo "$alive_output"
+        # Run alive-tv command and capture the output
+        alive_output=$("${ALIVE_TV_BINARY}" "${ll_file}" "${ll_file}.out" --quiet)
 
-            if [ $? -ne 0 ] || \
-               [[ ! $alive_output =~ "0 incorrect transformations" ]] || \
-               [[ ! $alive_output =~ "0 Alive2 errors" ]]; then
-                exit 1
-            fi
+        echo "$alive_output"
+
+        # Check the result and exit if there are errors
+        if [ $? -ne 0 ] || \
+           [[ ! $alive_output =~ "0 incorrect transformations" ]] || \
+           [[ ! $alive_output =~ "0 Alive2 errors" ]]; then
+            exit 1
         fi
-    done
+    fi
 done
