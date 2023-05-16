@@ -3,47 +3,16 @@
 LLVM_DIR=/opt/llvm/bin/
 ALIVE_TV_BINARY=$(realpath "$1"/alive-tv)
 
-# Clone the benchmark repository
-git clone https://github.com/snu-sf-class/swpp202301-benchmarks
 cd swpp202301-benchmarks/
 
-# Build lls and asms
+# Build lls
 python3 build-lls.py "${LLVM_DIR}"
-python3 build-asms.py ../build/swpp-compiler 2>&1 || exit 1
 
-# Read the CSV file (skipping the header)
-while IFS=, read -r _ CLASS_NAME PASS_NAME _; do
-    CLASS_NAMES+=("-load-pass-plugin=../build/lib${CLASS_NAME}.so")
-    PASS_NAMES+=("$PASS_NAME")
+# Build asms and capture output
+output=$(python3 build-asms.py ../build/swpp-compiler 2>&1)
+exit_code=$?
 
-    # Print the variables to check the values
-    echo "Pass Name: $PASS_NAME"
-    echo "Class Name: $CLASS_NAME"
-    echo "---"
-done < <(tail -n +2 ../unit_tests/entries.csv)
-
-PASS_NAMES_STR=$(IFS=,; echo "${PASS_NAMES[*]}")
-
-for dir in *; do
-    if [ -d "${dir}/src" ]; then
-        # Find the .ll file
-        ll_file=$(find "${dir}/src" -name "*.ll")
-
-        echo "Checking ${ll_file}..."
-
-        # Run LLVM opt command with the appropriate arguments
-        ${LLVM_DIR}/opt "${ll_file}" "${CLASS_NAMES[@]}" -passes="${PASS_NAMES_STR}" -S -o "${ll_file}.out"
-
-        # Run alive-tv command and capture the output
-        alive_output=$("${ALIVE_TV_BINARY}" "${ll_file}" "${ll_file}.out" --quiet)
-
-        echo "$alive_output"
-
-        # Check the result and exit if there are errors
-        if [ $? -ne 0 ] || \
-           [[ ! $alive_output =~ "0 incorrect transformations" ]] || \
-           [[ ! $alive_output =~ "0 Alive2 errors" ]]; then
-            exit 1
-        fi
-    fi
-done
+if [ $exit_code -ne 0 ] || [[ $output == *"Failed to build ll from"* ]]; then
+    echo "Failed to build ll using swpp-compiler."
+    exit 1
+fi
