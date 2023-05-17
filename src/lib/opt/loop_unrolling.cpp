@@ -1,7 +1,5 @@
 #include "loop_unrolling.h"
-#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
@@ -17,17 +15,19 @@ namespace sc::opt::loop_unrolling {
 PreservedAnalyses LoopUnrolling::run(Function &F,
                                      FunctionAnalysisManager &FAM) {
   LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
+  ScalarEvolution &SE = FAM.getResult<ScalarEvolutionAnalysis>(F);
+  DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
 
   for (Loop *L : LI) {
     // Determine the loop unrolling options based on your requirements
-    UnrollLoopOptions ULO{2, true, true, true, true, true};
+    UnrollLoopOptions ULO{8, true, true, true, true, true};
 
     // Set the remaining parameters as needed
     Loop *RemainderLoop = nullptr;
     bool PreserveLCSSA = false;
 
     // Perform loop unrolling using UnrollLoop function
-    LoopUnrollResult Result = UnrollLoop(L, ULO, &LI, nullptr, nullptr, nullptr, nullptr, nullptr, PreserveLCSSA, &RemainderLoop);
+    LoopUnrollResult Result = UnrollLoop(L, ULO, &LI, &SE, &DT, nullptr, nullptr, nullptr, PreserveLCSSA);
   }
 
   return PreservedAnalyses::none();
