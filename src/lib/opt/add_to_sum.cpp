@@ -166,6 +166,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
   // `sum` instructions introduces new usages of lower-depth `add` Instructions.
   set<Instruction *> CheckForDeletion;
   SmallVector<CallInst *> SumInstructions;
+  set<Instruction *> DeletedInstructions;
   for (auto entry = AddDepthVec.rbegin(); entry != AddDepthVec.rend();
        ++entry) {
     Instruction *inst = (*entry).first;
@@ -288,6 +289,7 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
       Value *sum_call = Builder.CreateCall(FC, args);
       StringRef prev_inst_name = inst->getName();
       inst->replaceAllUsesWith(sum_call);
+      DeletedInstructions.insert(inst);
       inst->eraseFromParent();
       sum_call->setName(prev_inst_name);
 
@@ -304,13 +306,14 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     // This check is necessary because some `sub` instructions might not
     // actually have been replaced by `sum`
     if ((*inst)->use_empty()) {
+      DeletedInstructions.insert(*inst);
       (*inst)->eraseFromParent();
     }
   }
 
   for (auto &inst : CheckForDeletion) {
-    if (inst->use_empty()) {
-      (inst->eraseFromParent());
+    if (!DeletedInstructions.count(inst) && inst->use_empty()) {
+      inst->eraseFromParent();
     }
   }
 
