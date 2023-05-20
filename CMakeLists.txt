@@ -9,7 +9,7 @@ set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
 # Specify LLVM directory to use
-# set(LLVM_ROOT )
+set(LLVM_ROOT ~/llvm-swpp)
 find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVM in: ${LLVM_BINARY_DIR}")
@@ -17,7 +17,7 @@ message(STATUS "Using LLVM in: ${LLVM_BINARY_DIR}")
 # Search for the alive2-tv binary
 find_program(ALIVE_TV_BINARY
   NAMES alive-tv
-  PATHS ${ALIVE2_BINARY_DIR}
+  PATHS ${ALIVE2_BINARY_DIR} ~/alive2/build
 )
 
 # Check if alive2-tv was found
