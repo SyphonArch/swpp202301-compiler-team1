@@ -1,6 +1,6 @@
 Source Name,Class Name,Pass Name,Unit Test Prefix
 gvn_pass,GVNpass,gvn-pass,GVN
-dce_pass,DCEpass,dce-pass,DCE
+lcssa_pass,LCSSApass,lcssa-pass,LCSSA
 bias_to_false_branch,BiasToFalseBranch,bias-to-false-branch,bias_to_false_branch
 add_to_sum,AddToSum,add-to-sum,add_to_sum
 arithmetic_pass,ArithmeticPass,arithmetic-pass,arithmetic_pass
