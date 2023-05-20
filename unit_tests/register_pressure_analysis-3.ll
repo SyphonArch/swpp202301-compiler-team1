@@ -1,6 +1,10 @@
 ; RUN: opt < %s -load-pass-plugin=./build/libRegisterPressurePrinterPass.so -passes=register-pressure-printer-pass -S -disable-output 2>&1 | FileCheck %s
 
-; f has two live registers: %i.0 and %add (Note that %cmp is internal, only in while.cond.)
+; One valid post-order visit sequence: while.end -> while.cond -> while.body -> entry
+; In this case, the register pressure is calculated as 2 (in while.cond, there is %i.0 and %cmp)
+; The other possible sequence can be: while.body -> while.end-> while.cond -> entry
+; In this case, the register pressure is calculated as 2 
+; (same as the previous. in while.cond, there is %i.0 and %cmp)
 
 ; CHECK: Approximate Register Pressure of @f: 2
 define i32 @f() {
