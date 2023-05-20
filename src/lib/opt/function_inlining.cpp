@@ -248,11 +248,11 @@ bool shouldInline(CallInst *CI) {
     return false;
   }
 
-  // Hard limit: register pressure 32.
+  // Hard limit: register pressure 30.
   unsigned int calleeRegisterPressure = calculateRegisterPressure(*Callee);
   unsigned int callerRegisterPressure =
       calculateRegisterPressure(*CI->getFunction());
-  if (calleeRegisterPressure + callerRegisterPressure > 32) {
+  if (calleeRegisterPressure + callerRegisterPressure > 30) {
     return false;
   }
 
