@@ -30,17 +30,18 @@ alive2_pattern = re.compile(r'Summary:\n'
                             r'\s*(\d+) Alive2 errors')
 
 for entry in entries:
-    sourcename, classname, passname, testname = entry
+    sourcename, classname, passname = entry
 
-    test_output_dir = os.path.join(temp_dir_path, testname)
+    test_input_dir = os.path.join(ll_files_dir, sourcename)
+    test_output_dir = os.path.join(temp_dir_path, sourcename)
     os.makedirs(test_output_dir)
 
     print(f"== {passname} ==")
     pass_lib = f"lib{classname}.so"
-    ll_files = [f for f in os.listdir(ll_files_dir) if f.startswith(testname) and f.endswith(".ll")]
+    ll_files = [f for f in os.listdir(test_input_dir) if f.endswith(".ll")]
 
     for ll_file in ll_files:
-        ll_path = f"{ll_files_dir}/{ll_file}"
+        ll_path = f"{test_input_dir}/{ll_file}"
 
         print(f"Test file: \t{ll_path}")
 
