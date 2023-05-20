@@ -7,9 +7,10 @@ using namespace std;
 using namespace llvm;
 
 namespace sc::opt::gep_elim {
-class GEPEliminatePass : public llvm::PassInfoMixin<GEPEliminatePass> {
+class GEPEliminatePass : public PassInfoMixin<GEPEliminatePass> {
 public:
-  PreservedAnalyses run(llvm::Module &, llvm::ModuleAnalysisManager &);
+PreservedAnalyses run(Function &,
+                                      FunctionAnalysisManager &);
 };
 } // namespace sc::opt::gep_elim
 #endif // SC_BACKEND_GEP_ELIMINATE_H

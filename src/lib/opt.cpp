@@ -38,13 +38,13 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     FPM.addPass(add_to_sum::AddToSum());
     FPM.addPass(arithmetic_pass::ArithmeticPass());
     FPM.addPass(use_async_load::UseAsyncLoad());
+    FPM.addPass(gep_elim::GEPEliminatePass());
 
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
     // Add CGSCC-level opt passes below
 
     MPM.addPass(llvm::createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
     // Add module-level opt passes below
-    MPM.addPass(gep_elim::GEPEliminatePass());
 
     MPM.run(*__M, __MAM);
     sc::print_ir::printIRIfVerbose(*__M, "After optimization");
