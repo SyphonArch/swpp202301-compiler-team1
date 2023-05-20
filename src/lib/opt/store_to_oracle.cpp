@@ -2,6 +2,8 @@
 
 #include "store_to_oracle.h"
 
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -22,138 +24,160 @@
 using namespace llvm;
 using namespace std;
 
+namespace sc::opt::store_to_oracle {
 
-void replaceWithOracle (Function &F, Instruction &I, int storeInstCount, std::vector<StoreInst*> storeInstArray, std::vector<Value*> storeOperandsArray){
-    // Define a struct to hold the operands for the Oracle intrinsic
-    StructType* OperandStructType = StructType::get(
-        F.getContext(),
-        { Type::getInt64Ty(F.getContext()), // value operand
-      Type::getInt64Ty(F.getContext()), // pointer operand
-      Type::getInt8Ty(F.getContext())   // value type
-      }
-    );
-  // Remove storeInst
-  for (int i = 0; i < storeInstCount; i++) {
-    storeInstArray[i]->eraseFromParent();
-  }
 
-  // Define the Oracle intrinsic
-  FunctionType* OracleFuncType = FunctionType::get(Type::getVoidTy(F.getContext()), {OperandStructType->getPointerTo(), Type::getInt32Ty(F.getContext())}, false);
-  Function* OracleFunc = Function::Create(OracleFuncType, Function::ExternalLinkage, "Oracle", F.getParent());
-  
-  // Implement the Oracle intrinsic
-  BasicBlock* EntryBB = BasicBlock::Create(F.getContext(), "entry", OracleFunc);
-  IRBuilder<> Builder(EntryBB);
-  
-  // Get the function arguments
-  Argument* StoreOperandsArray = &*(OracleFunc->arg_begin());
-  StoreOperandsArray->setName("storeOperandsArray");
-  Argument* StoreInstCount = &*std::next(OracleFunc->arg_begin());
-  StoreInstCount->setName("storeInstCount");
-  
-  // Loop through the store operand array and execute the store instructions
-  for (int i = 0; i < cast<ConstantInt>(StoreInstCount)->getZExtValue(); i++) {
-    Value* StoreOperandPtr = Builder.CreateInBoundsGEP(cast<PointerType>(StoreOperandsArray->getType())->getArrayElementType(), StoreOperandsArray, {ConstantInt::get(Type::getInt32Ty(F.getContext()), 0), ConstantInt::get(Type::getInt32Ty(F.getContext()), i)});
-    Value* StoreOperand = Builder.CreateLoad(cast<PointerType>(StoreOperandsArray->getType())->getArrayElementType(), StoreOperandPtr);
-    Value* ValueOperand = Builder.CreateExtractValue(StoreOperand, {0});
-    Value* PointerOperand = Builder.CreateExtractValue(StoreOperand, {1});
-    Value* BitWidth = Builder.CreateZExtOrTrunc(Builder.CreateExtractValue(StoreOperand, {2}), Type::getInt32Ty(F.getContext()));
-    StoreInst* StoreInst = Builder.CreateStore(ValueOperand, PointerOperand);
-    StoreInst->setAlignment(llvm::Align(cast<ConstantInt>(BitWidth)->getZExtValue()));
-  }
-  Builder.CreateRetVoid();
+/*
+llvm::Function* declareOracleIntrinsic(llvm::Module* module, llvm::LLVMContext& context) {
 
-  // Set up the IRBuilder to insert instructions before the original instruction
-  IRBuilder<> CallerBuilder(&I);
+  // Argument of oracle intrinsic is variadic
+  llvm::Type* retType = llvm::Type::getVoidTy(context);
+  llvm::FunctionType* oracleFnType = llvm::FunctionType::get(retType, true);
 
-  // Create the call instruction
-  FunctionCallee OracleCallee = OracleFunc;
-  Value* OracleResult = CallerBuilder.CreateCall(OracleCallee, {StoreOperandsArray, StoreInstCount});
+  // Create the oracle intrinsic function
+  llvm::Function* oracleFn = llvm::Function::Create(oracleFnType, llvm::Function::ExternalLinkage, "oracle", module);
 
-  // Insert the Oracle call before the original instruction
-  CallerBuilder.Insert(OracleResult);
+  // Never inline the oracle intrinsic
+  oracleFn->addFnAttr(llvm::Attribute::NoInline);
+
+  return oracleFn;
 }
 
+void defineOracleIntrinsic(llvm::Function* oracleFn, llvm::LLVMContext& context) {
+  llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(context, "entry", oracleFn);
+  llvm::IRBuilder<> builder(entryBlock);
 
-namespace sc::opt::store_to_oracle {
+  llvm::Type* i8PtrTy = llvm::Type::getInt8PtrTy(context);
+  llvm::Type* i64Ty = llvm::Type::getInt64Ty(context);
+  llvm::Type* i32Ty = llvm::Type::getInt32Ty(context);
+
+  llvm::Value* iterationCount = oracleFn->arg_begin();
+
+  // Create loop structure
+  llvm::BasicBlock* loopCondBlock = llvm::BasicBlock::Create(context, "loop.cond", oracleFn);
+  llvm::BasicBlock* loopBodyBlock = llvm::BasicBlock::Create(context, "loop.body", oracleFn);
+  llvm::BasicBlock* loopExitBlock = llvm::BasicBlock::Create(context, "loop.exit", oracleFn);
+
+  builder.CreateBr(loopCondBlock);
+  builder.SetInsertPoint(loopCondBlock);
+  llvm::PHINode* iterationPhi = builder.CreatePHI(i32Ty, 2);
+  iterationPhi->addIncoming(iterationCount, entryBlock);
+  llvm::Value* isLoopExit = builder.CreateICmpEQ(iterationPhi, llvm::ConstantInt::get(i32Ty, 0));
+  builder.CreateCondBr(isLoopExit, loopExitBlock, loopBodyBlock);
+
+  // Loop body
+  builder.SetInsertPoint(loopBodyBlock);
+  llvm::Value* index = builder.CreateSub(iterationPhi, llvm::ConstantInt::get(i32Ty, 1));
+
+  // Iterate over the variadic arguments
+  llvm::Function::arg_iterator args = std::next(oracleFn->arg_begin());
+  for (llvm::Function::arg_iterator arg = args; arg != oracleFn->arg_end(); ++arg) {
+    llvm::Value* addr = builder.CreateGEP(i8PtrTy, &*arg, llvm::ArrayRef<llvm::Value*>({ index }), "");
+    ++arg;
+    llvm::Value* val = builder.CreateGEP(i64Ty, &*arg, llvm::ArrayRef<llvm::Value*>({ index }), "");
+    ++arg;
+    llvm::Value* bitwidth = builder.CreateGEP(i32Ty, &*arg, llvm::ArrayRef<llvm::Value*>({ index }), "");
+
+    // Create a switch statement based on the bitwidth argument
+    llvm::SwitchInst* switchInst = builder.CreateSwitch(bitwidth, nullptr, 4);
+
+    // Create case 8
+    llvm::BasicBlock* case8Block = llvm::BasicBlock::Create(context, "case8", oracleFn);
+    builder.SetInsertPoint(case8Block);
+    llvm::Value* val8 = builder.CreateBitCast(val, llvm::Type::getInt8Ty(context));
+    builder.CreateStore(val8, addr);
+    builder.CreateBr(loopCondBlock);
+    switchInst->addCase(llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 8), case8Block);
+
+    // Create case 16
+    llvm::BasicBlock* case16Block = llvm::BasicBlock::Create(context, "case16", oracleFn);
+    builder.SetInsertPoint(case16Block);
+    llvm::Value* ptr16 = builder.CreateBitCast(addr, llvm::Type::getInt16PtrTy(context));
+    llvm::Value* val16 = builder.CreateBitCast(val, llvm::Type::getInt16Ty(context));
+    builder.CreateStore(val16, ptr16);
+    builder.CreateBr(loopCondBlock);
+    switchInst->addCase(llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 16), case16Block);
+
+    // Create case 32
+    llvm::BasicBlock* case32Block = llvm::BasicBlock::Create(context, "case32", oracleFn);
+    builder.SetInsertPoint(case32Block);
+    llvm::Value* ptr32 = builder.CreateBitCast(addr, llvm::Type::getInt32PtrTy(context));
+    llvm::Value* val32 = builder.CreateBitCast(val, llvm::Type::getInt32Ty(context));
+    builder.CreateStore(val32, ptr32);
+    builder.CreateBr(loopCondBlock);
+    switchInst->addCase(llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 32), case32Block);
+
+    // Create case 64
+    llvm::BasicBlock* case64Block = llvm::BasicBlock::Create(context, "case64", oracleFn);
+    builder.SetInsertPoint(case64Block);
+    llvm::Value* ptr64 = builder.CreateBitCast(addr, llvm::Type::getInt64PtrTy(context));
+    builder.CreateStore(val, ptr64);
+    builder.CreateBr(loopCondBlock);
+    switchInst->addCase(llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 64), case64Block);
+  }
+
+  // Insert return instruction
+  builder.SetInsertPoint(loopExitBlock);
+  builder.CreateRetVoid();
+
+  // Update the PHI node in the loop condition block
+  iterationPhi->addIncoming(index, loopBodyBlock);
+  
+}
+
+*/
+
 PreservedAnalyses StoreToOracle::run(Function &F, FunctionAnalysisManager &FAM) {
   DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+
+  // Declare and define oracle intrinsic
+  LLVMContext &c = F.getContext();
+  Module *m = F.getParent();
+  //Function *oracleFn = declareOracleIntrinsic(m, c);
+  //defineOracleIntrinsic(oracleFn, c);
+
   for (BasicBlock &BB : F) {
-    if (BB.empty())
-      continue;
-    // Part 1 : Move store instructions up
+    // Part 1 : Move storeInst up
+    //for (Instruction &I : BB) {
+
+    //}
+
+    // Part 2 : Fetch arguments {storePtr[], storeVal[], storeType[], storeNum} for consecutive storeInst
     for (Instruction &I : BB) {
-      if (!dyn_cast<StoreInst>(&I))
-        continue;
-      
+      std::vector<StoreInst*> storeInstVec;
+      std::vector<Value*> argsVec;
       StoreInst *storeInst = dyn_cast<StoreInst>(&I);
-      Instruction *priorStoreInst = storeInst->getPrevNode();
-      Value *storeVal = storeInst->getValueOperand();
-      Value *storePtr = storeInst->getPointerOperand();
+      if (!storeInst) {
+        // Part 3 : If beneficial, call oracle intrinsic
+        if (!storeInstVec.empty()) {
+          // complete argsVec = {storeCount, addr_1, val_1, bitwidth_1, ... , addr_n, val_n, bitwidth_n}
+          //argsVec.insert(argsVec.begin(), llvm::ConstantInt::get(llvm::Type::getInt32Ty(c), storeCount));
 
-      while (priorStoreInst){
-        if (dyn_cast<PHINode>(priorStoreInst) ||
-            dyn_cast<CallInst>(priorStoreInst) ||
-            priorStoreInst->mayReadOrWriteMemory())
-          break;
-        if (storeVal == priorStoreInst ||
-            storePtr == priorStoreInst)
-          break;
-        storeInst->moveBefore(priorStoreInst);
-        priorStoreInst = storeInst->getPrevNode();
+          //CallInst *oracleCall = CallInst::Create(oracleFn, argsVec);
+          //oracleCall->setCallingConv(oracleFn->getCallingConv());
+          //oracleCall->insertAfter(dyn_cast<Instruction>(storeInstVec[storeCount - 1]));
+          //for (int i = 0; i < storeInstVec.size(); i++) {
+            //storeInstVec[i]->removeFromParent();
+          //}
+        }
+        //argsVec.clear();
+        //storeInstVec.clear();
+      } else {
+        //storeInstVec.push_back(storeInst);
+        if (storeInst->getParent()) {
+          storeInst->removeFromParent();
+        }
+        //Value* addrArg = storeInst->getPointerOperand();
+        //Value* valArg = storeInst->getValueOperand();
+        //llvm::IntegerType* intType = llvm::dyn_cast<llvm::IntegerType>(storeInst->getValueOperand()->getType());
+        //Value* bitwidthArg = llvm::ConstantInt::get(llvm::Type::getInt32Ty(c), intType->getBitWidth());
+
+        // argsVec += {addr_i, val_i, bitwidth_i}
+        //argsVec.push_back(addrArg);
+        //argsVec.push_back(valArg);
+        //argsVec.push_back(bitwidthArg);
       }
-      
     }
-    
-    StructType* OperandStructType = StructType::get(
-      F.getContext(),
-      { Type::getInt64Ty(F.getContext()), // value operand
-      Type::getInt64Ty(F.getContext()), // pointer operand
-      Type::getInt8Ty(F.getContext())   // value type
-      }
-    );
-    // Part 2 : replace consecutive store instructions with an oracle call 
-    int storeInstCount = 0;
-    Value* OperandsStruct = UndefValue::get(OperandStructType);
-    std::vector<StoreInst*> storeInstArray;
-    std::vector<Value*> storeOperandsArray;
-    for (Instruction &I : BB){
-      StoreInst *storeInst = dyn_cast<StoreInst>(&I);
-      // replaceWithOracle if more than 3 consecutive store instructions (reduce cost)
-      if (!dyn_cast<StoreInst>(&I)) {
-        invalid_store:
-        if (storeInstCount >= 3)
-          storeInstCount = storeInstCount;
-          //replaceWithOracle (F, I, storeInstCount, storeInstArray, storeOperandsArray);
-        storeInstCount = 0;
-        storeInstArray.clear();
-        storeOperandsArray.clear();
-        continue;
-      }
-      
-      // Extract required information from storeInst
-      Value *storeVal = storeInst->getValueOperand();
-      Value *storePtr = storeInst->getPointerOperand();
-      unsigned int storeWidth = (storeVal->getType())->getIntegerBitWidth();
-
-      // Increment storeInstCount, Push storeInst, Cast storeVal, storePtr, storeWidth to i64, i64, i8 (extra cost)
-      if (!storeVal || !storePtr || !storeWidth)
-        goto invalid_store; // Invalid store instruction. Oracle call insertion place does not matter.
-      storeInstCount++;
-      storeInstArray.push_back(storeInst);
-      storeVal = new ZExtInst(storeVal, Type::getInt64Ty(F.getContext()), "", &I);
-      storePtr = new PtrToIntInst(storePtr, Type::getInt64Ty(F.getContext()), "", &I);
-
-    
-      // Create a constant for the value type, operand, and pointer operand
-      Constant* storeWidthConst = ConstantInt::get(Type::getInt8Ty(F.getContext()), (uint64_t)storeWidth);
-      Constant* storeValConst = ConstantInt::get(Type::getInt64Ty(F.getContext()), cast<ConstantInt>(storeVal)->getZExtValue());
-      Constant* storePtrConst = ConstantExpr::getPtrToInt(cast<ConstantInt>(storePtr), Type::getInt64Ty(F.getContext()));
-
-      OperandsStruct = ConstantStruct::get(OperandStructType, storeWidthConst, storeValConst, storePtrConst);
-      storeOperandsArray.push_back(OperandsStruct);
-    }
-    
   }
     return PreservedAnalyses::none();
 };
