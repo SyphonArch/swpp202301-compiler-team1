@@ -1,12 +1,12 @@
 #!/bin/bash
 
-LLVM_DIR=/opt/llvm/bin/
+LLVM_DIR=/opt/llvm/bin
 ALIVE_TV_BINARY=$(realpath "$1"/alive-tv)
 
 cd swpp202301-benchmarks/
 
 # Read the CSV file (skipping the header)
-while IFS=, read -r _ CLASS_NAME PASS_NAME _; do
+while IFS=, read -r _ CLASS_NAME PASS_NAME; do
     CLASS_NAMES+=("-load-pass-plugin=../build/lib${CLASS_NAME}.so")
     PASS_NAMES+=("$PASS_NAME")
 
@@ -26,7 +26,7 @@ for dir in *; do
         echo "Checking ${ll_file}..."
 
         # Run LLVM opt command with the appropriate arguments
-        ${LLVM_DIR}/opt "${ll_file}" "${CLASS_NAMES[@]}" -passes="${PASS_NAMES_STR}" -S -o "${ll_file}.out"
+        ${LLVM_DIR}/opt "${ll_file}" "${CLASS_NAMES[@]}" -passes="${PASS_NAMES_STR}" -S -o "${ll_file}.out" || exit 1
 
         # Run alive-tv command and capture the output
         alive_output=$("${ALIVE_TV_BINARY}" "${ll_file}" "${ll_file}.out" --quiet)
