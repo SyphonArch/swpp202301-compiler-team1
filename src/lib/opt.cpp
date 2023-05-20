@@ -10,6 +10,7 @@
 #include "./opt/add_to_sum.h"
 #include "./opt/arithmetic_pass.h"
 #include "./opt/use_async_load.h"
+#include "./opt/store_to_oracle.h"
 
 using namespace std::string_literals;
 
@@ -36,6 +37,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     FPM.addPass(add_to_sum::AddToSum());
     FPM.addPass(arithmetic_pass::ArithmeticPass());
     FPM.addPass(use_async_load::UseAsyncLoad());
+    FPM.addPass(store_to_oracle::StoreToOracle());
 
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
     // Add CGSCC-level opt passes below
