@@ -2,14 +2,15 @@
 
 #include "../static_error.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
+
 #include "print_ir.h"
 
-#include "./opt/gvn_pass.h"
-#include "./opt/bias_to_false_branch.h"
 #include "./opt/add_to_sum.h"
 #include "./opt/arithmetic_pass.h"
-#include "./opt/use_async_load.h"
+#include "./opt/bias_to_false_branch.h"
+#include "./opt/gvn_pass.h"
 #include "./opt/lcssa_pass.h"
+#include "./opt/use_async_load.h"
 
 using namespace std::string_literals;
 
