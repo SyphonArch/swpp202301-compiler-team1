@@ -91,6 +91,14 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
       }
       Instruction *NewInst = nullptr;
 
+      // change add %a 0 -> mul %a 1
+      if (I.getOpcode() == Instruction::Add) {
+        if (!C0 && C1 && (C1->getValue() == 0)) {
+          NewInst = BinaryOperator::Create(
+              Instruction::Mul, Op0, ConstantInt::get(Op0->getType(), 1));
+        }
+      }
+
       // change add %a %a -> mul %a 2
       if (I.getOpcode() == Instruction::Add) {
         if (!C1 && !C0 && Op0 == Op1) { // Check if operands are equal
