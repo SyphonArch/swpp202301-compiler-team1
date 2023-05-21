@@ -3,7 +3,7 @@
 ; Check if the function inlining works in the most simple case.
 ; (Callee has 1 BasicBlock and 1 int return instruction)
 
-define i32 @caller(i32 %a, i32 %b) {
+define internal i32 @caller(i32 noundef %a, i32 noundef %b) {
 ; CHECK-LABEL: @caller(
 ; CHECK-NEXT:    [[ADD:%.*]] = add i32 [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = sub i32 [[ADD]], 5
@@ -16,7 +16,7 @@ define i32 @caller(i32 %a, i32 %b) {
   ret i32 %call2
 }
 
-define i32 @callee1(i32 %x) {
+define i32 @callee1(i32 %x) #2 {
 ; CHECK-LABEL: @callee1(
 ; CHECK-NEXT:    [[SUB:%.*]] = sub i32 [[X:%.*]], 5
 ; CHECK-NEXT:    ret i32 [[SUB]]
@@ -25,7 +25,7 @@ define i32 @callee1(i32 %x) {
   ret i32 %sub
 }
 
-define i32 @callee2(i32 %y) {
+define i32 @callee2(i32 %y) #2{
 ; CHECK-LABEL: @callee2(
 ; CHECK-NEXT:    [[MUL:%.*]] = mul i32 [[Y:%.*]], 3
 ; CHECK-NEXT:    ret i32 [[MUL]]

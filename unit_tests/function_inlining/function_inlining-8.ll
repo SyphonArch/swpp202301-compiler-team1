@@ -3,7 +3,8 @@
 ; Check if function inlining moves the static allocas up.
 
 ; @foo calls @bar, and @bar should be inlined with its static allocas up to the entry.
-define i32 @foo(i32 %x) {
+; Function Attrs: nounwind uwtable
+define internal i32 @foo(i32 noundef %x) {
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca i32, align 4
@@ -20,7 +21,7 @@ define i32 @foo(i32 %x) {
 ; CHECK-NEXT:    ret i32 [[TMP3]]
 ;
 entry:
-  %alloca_x = alloca i32, align 4
+  %alloca_x = alloca i32
   store i32 %x, i32* %alloca_x, align 4
   br label %exit
 exit:
@@ -30,7 +31,8 @@ exit:
 }
 
 ; bar have two static allocas
-define i32 @bar(i32 %y) {
+; Function Attrs: nounwind uwtable
+define internal i32 @bar(i32 %y) {
 ; CHECK-LABEL: @bar(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ALLOCA_Y:%.*]] = alloca i32, align 4

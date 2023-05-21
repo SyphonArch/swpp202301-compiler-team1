@@ -37,7 +37,7 @@ merge:
   ret i64 %retval
 }
 
-define dso_local i32 @main() {
+define internal i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[ENTRY1:%.*]]

@@ -25,7 +25,7 @@ entry:
   ret i32 %product
 }
 
-define i32 @mul_and_add(i32 %x, i32 %y, i32 %z) {
+define internal i32 @mul_and_add(i32 %x, i32 %y, i32 %z) {
 ; CHECK-LABEL: @mul_and_add(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = mul i32 [[X:%.*]], [[Y:%.*]]
@@ -38,7 +38,7 @@ entry:
   ret i32 %add_res
 }
 
-define i32 @main() {
+define internal i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = mul i32 2, 3

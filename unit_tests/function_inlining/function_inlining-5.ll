@@ -24,7 +24,7 @@ no_add_return:
   ret i32 %x
 }
 
-define i32 @main() {
+define internal i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[RESULT1:%.*]] = call i32 @conditional_add(i32 2, i32 3, i1 true)

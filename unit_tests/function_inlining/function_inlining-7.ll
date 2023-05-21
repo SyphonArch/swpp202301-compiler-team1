@@ -13,7 +13,7 @@ define i64 @oracle(i32* %ptr1, i32 %value1, i32* %ptr2, i32 %value2) {
   ret i64 0
 }
 
-define i64 @test() {
+define internal i64 @test() {
 ; CHECK-LABEL: @test(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[PTR1:%.*]] = alloca i32, align 4

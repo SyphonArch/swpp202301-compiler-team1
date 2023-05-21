@@ -3,7 +3,7 @@
 
 ; Check if the phi after split is remapped correctly.
 
-define i32 @caller(i32 %a, i32 %b) {
+define internal i32 @caller(i32 %a, i32 %b) {
 ; CHECK-LABEL: @caller(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ADD:%.*]] = add i32 [[A:%.*]], [[B:%.*]]

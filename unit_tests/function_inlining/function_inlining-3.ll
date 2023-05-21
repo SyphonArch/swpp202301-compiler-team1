@@ -3,7 +3,7 @@
 ; Check if function inlining works
 ; when the Callee has multiple BasicBlocks.
 
-define i32 @caller(i32 %a, i32 %b) {
+define internal i32 @caller(i32 %a, i32 %b) {
 ; CHECK-LABEL: @caller(
 ; CHECK-NEXT:    [[ADD:%.*]] = add i32 [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = mul i32 [[ADD]], 3
