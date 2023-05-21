@@ -323,7 +323,8 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     for (int idx = 0; idx < sum_inst->getNumOperands(); ++idx) {
       Value *arg = sum_inst->getOperand(idx);
       if (auto arg_inst = dyn_cast<Instruction>(arg)) {
-        if (arg_inst->hasOneUse()) {
+        if (arg_inst->hasOneUse() && !arg_inst->mayHaveSideEffects() &&
+            arg_inst->getParent() == sum_inst->getParent()) {
           assert(*arg_inst->user_begin() == sum_inst);
           arg_inst->moveBefore(sum_inst);
         }
