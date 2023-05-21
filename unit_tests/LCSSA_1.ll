@@ -1,27 +1,42 @@
-define void @example() {
+define i32 @factorial(i32 %n) {
   entry:
-    %i = alloca i32
-    store i32 0, i32* %i
-    br label %loop
-
+    %cmp1 = icmp sle i32 %n, 1
+    br i1 %cmp1, label %return_one, label %loop
+    
   loop:
-    %0 = load i32, i32* %i
-    %1 = add i32 %0, 1
-    store i32 %1, i32* %i
-    %2 = load i32, i32* %i
-    %3 = icmp slt i32 %2, 10
-    br i1 %3, label %loop, label %exit
 
+    %counter = phi i32 [ %n, %entry ], [ %next_value, %loop ]
+    %result = phi i32 [ 1, %entry ], [ %mul_result, %loop ]
+    %mul_result = mul i32 %result, %counter
+    %next_value = sub i32 %counter, 1
+    %cmp2 = icmp sgt i32 %next_value, 1
+    br i1 %cmp2, label %loop, label %exit
+    
   exit:
-    ret void
+    %redundant = add i32 %counter, 1
+    ret i32 %mul_result
+    
+  return_one:
+    ret i32 1
 }
 
-; CHECK: define i32 @bar(i32 %x) {
-; CHECK-NEXT:entry:
-; CHECK-NEXT:  %y = add i32 %x, 5
-; CHECK-NEXT:  %z = mul i32 %x, 3
-; CHECK-NEXT:  %unused = sub i32 %z, %y
-; CHECK-NEXT:  ret i32 %y
-; CHECK-NEXT: }
+; CHECK: define i32 @factorial(i32 %n) {
+; CHECK: entry:
+; CHECK-NEXT:   %cmp1 = icmp sle i32 %n, 1
+; CHECK-NEXT:   br i1 %cmp1, label %return_one, label %loop
+; CHECK: loop:                                             ; preds = %loop, %entry
+; CHECK-NEXT:   %counter = phi i32 [ %n, %entry ], [ %next_value, %loop ]
+; CHECK-NEXT:   %result = phi i32 [ 1, %entry ], [ %mul_result, %loop ]
+; CHECK-NEXT:   %mul_result = mul i32 %result, %counter
+; CHECK-NEXT:   %next_value = sub i32 %counter, 1
+; CHECK-NEXT:   %cmp2 = icmp sgt i32 %next_value, 1
+; CHECK-NEXT:   br i1 %cmp2, label %loop, label %exit
+; CHECK: exit:                                             ; preds = %loop
+; CHECK-NEXT:   %counter.lcssa = phi i32 [ %counter, %loop ]
+; CHECK-NEXT:   %mul_result.lcssa = phi i32 [ %mul_result, %loop ]
+; CHECK-NEXT:   %redundant = add i32 %counter.lcssa, 1
+; CHECK-NEXT:   ret i32 %mul_result.lcssa
+; CHECK: return_one:                                       ; preds = %entry
+; CHECK-NEXT:   ret i32 1
 
-; case 1: removed unused arith value
+; case 1: simple loop example: factorial
