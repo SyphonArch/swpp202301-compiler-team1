@@ -1,3 +1,5 @@
+; Test loop unrolling on a loop with a variable trip count
+
 define i32 @sum_of_squares(i32 %n) {
 ; CHECK-LABEL: @sum_of_squares(i32 %n)
 ; CHECK: entry:

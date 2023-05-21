@@ -1,3 +1,5 @@
+; Test loop unrolling on a loop with a fixed trip count
+
 define i32 @sum_of_values() {
 ; CHECK-LABEL: @sum_of_values()
 ; CHECK: entry:
