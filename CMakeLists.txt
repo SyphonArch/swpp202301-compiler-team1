@@ -100,6 +100,7 @@ endfunction()
 # /================= ADD OPT PASSES BELOW ================/
 
 add_opt_pass(GVNpass gvn_pass.cpp)
+add_opt_pass(LCSSApass lcssa_pass.cpp)
 add_opt_pass(BiasToFalseBranch bias_to_false_branch.cpp)
 add_opt_pass(AddToSum add_to_sum.cpp)
 add_opt_pass(ArithmeticPass arithmetic_pass.cpp)
