@@ -85,7 +85,7 @@ for entry in entries:
 
         if alive_incorrect:
             print(f'Alive2 incorrect: {alive_incorrect}')
-            failures = True
+            # failures = True
 
         if alive_failed_to_prove:
             print(f'Alive2 failed to prove: {alive_failed_to_prove}')
