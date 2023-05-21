@@ -12,6 +12,7 @@
 #include "./opt/gvn_pass.h"
 #include "./opt/lcssa_pass.h"
 #include "./opt/use_async_load.h"
+#include "./opt/loop_unrolling.h"
 
 using namespace std::string_literals;
 
@@ -35,6 +36,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add function-level opt passes below
     FPM.addPass(gvn_pass::GVNpass());
     FPM.addPass(lcssa_pass::LCSSApass());
+    FPM.addPass(loop_unrolling::LoopUnrolling());
     FPM.addPass(bias_to_false_branch::BiasToFalseBranch());
     FPM.addPass(add_to_sum::AddToSum());
     FPM.addPass(arithmetic_pass::ArithmeticPass());

@@ -5,5 +5,6 @@ bias_to_false_branch,BiasToFalseBranch,bias-to-false-branch
 add_to_sum,AddToSum,add-to-sum
 arithmetic_pass,ArithmeticPass,arithmetic-pass
 use_async_load,UseAsyncLoad,use-async-load
-register_pressure_analysis,RegisterPressurePrinterPass,register-pressure-printer-pass
 function_inlining,FunctionInlining,function-inlining
+loop_unrolling,LoopUnrolling,loop-unrolling
+register_pressure_analysis,RegisterPressurePrinterPass,register-pressure-printer-pass
