@@ -4,7 +4,8 @@
 ; shl %x c -> mul %x (2^c)
 ; ashr %x c -> sdiv %x (2^c)
 ; lshr %x c -> udiv %x (2^c)
-; sub 0 $a -> mul %a -1
+; sub 0 %a -> mul %a -1
+; add %a 0 -> mul %a 1
 
 define i32 @main(i32 noundef %a, i32 noundef %b) {
 ; CHECK-LABEL: @main(i32 noundef %a, i32 noundef %b)
