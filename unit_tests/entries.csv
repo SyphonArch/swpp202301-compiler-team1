@@ -1,7 +1,9 @@
 Source Name,Class Name,Pass Name
 gvn_pass,GVNpass,gvn-pass
+lcssa_pass,LCSSApass,lcssa-pass
 bias_to_false_branch,BiasToFalseBranch,bias-to-false-branch
 add_to_sum,AddToSum,add-to-sum
 arithmetic_pass,ArithmeticPass,arithmetic-pass
 use_async_load,UseAsyncLoad,use-async-load
 loop_unrolling,LoopUnrolling,loop-unrolling
+register_pressure_analysis,RegisterPressurePrinterPass,register-pressure-printer-pass
