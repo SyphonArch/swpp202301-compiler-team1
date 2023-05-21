@@ -22,6 +22,8 @@ PreservedAnalyses LoopUnrolling::run(Function &F,
   for (Loop *L : LI) {
     if (L->isInnermost() && L->isLCSSAForm(DT)) {
       // Set loop unrolling options
+      // Count, Force, Runtime, AllowExpensiveTripCount, UnrollRemainder,
+      // ForgetAllSCEV All options are set to true to force maximal unrolling
       UnrollLoopOptions ULO{8, true, true, true, true, true};
 
       // Perform loop unrolling using UnrollLoop function
