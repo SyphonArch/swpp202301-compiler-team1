@@ -33,8 +33,14 @@ jobs:
     - name: Build
       run: cmake --build build --target swpp-compiler
 
-    - name: Unit Test
+    - name: Unit Tests
       run: ctest --test-dir build
 
+    - name: Clone benchmark repository
+      run: git clone https://github.com/snu-sf-class/swpp202301-benchmarks
+
     - name: Test Benchmark Compilation
-      run: ./.github/scripts/test_benchmark_compilation.sh ./alive2/build/
+      run: ./.github/scripts/test_benchmark_compilation.sh
+
+    - name: Benchmark Alive2 tests
+      run: ./.github/scripts/benchmark_alive2_test.sh ./alive2/build
