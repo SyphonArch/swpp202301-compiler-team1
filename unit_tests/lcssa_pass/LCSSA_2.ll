@@ -37,4 +37,4 @@ define i32 @sum_values(i32 %start, i32 %end) {
 ; CHECK-NEXT:   %final_sum = load i32, i32* %sum
 ; CHECK-NEXT:   ret i32 %final_sum
 
-; case 2: no useage of innner value. no change
+; case 2: no useage of inner value. no change
