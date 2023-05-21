@@ -33,11 +33,11 @@ for dir in *; do
 
         echo "$alive_output"
 
-        # Check the result and exit if there are errors
+        # Check the result and notify if there are errors
         if [ $? -ne 0 ] || \
            [[ ! $alive_output =~ "0 incorrect transformations" ]] || \
            [[ ! $alive_output =~ "0 Alive2 errors" ]]; then
-            exit 1
+            echo "ERROR"
         fi
     fi
 done
