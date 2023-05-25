@@ -72,6 +72,9 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
           // Constants are always given a positive `sign` by flipping their
           // values, if necessary. (Of course the constant values themselves can
           // be negative.) Constants are also merged together for space.
+          if (cnst->isZero()) {
+            return;
+          }
           if (sign) {
             auto *negConst = dyn_cast<ConstantInt>(ConstantExpr::getNeg(cnst));
             assert(negConst);
@@ -162,6 +165,8 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
   // of the Instruction. This is because replacing `add` instructions into
   // `sum` instructions introduces new usages of lower-depth `add` Instructions.
   set<Instruction *> CheckForDeletion;
+  SmallVector<CallInst *> SumInstructions;
+  set<Instruction *> DeletedInstructions;
   for (auto entry = AddDepthVec.rbegin(); entry != AddDepthVec.rend();
        ++entry) {
     Instruction *inst = (*entry).first;
@@ -281,11 +286,16 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
       }
       ArrayRef<Value *> args = makeArrayRef(AddToSumOps[inst]);
 
-      Value *Call1 = Builder.CreateCall(FC, args);
+      Value *sum_call = Builder.CreateCall(FC, args);
       StringRef prev_inst_name = inst->getName();
-      inst->replaceAllUsesWith(Call1);
+      inst->replaceAllUsesWith(sum_call);
+      DeletedInstructions.insert(inst);
       inst->eraseFromParent();
-      Call1->setName(prev_inst_name);
+      sum_call->setName(prev_inst_name);
+
+      auto *sum_call_inst = dyn_cast<CallInst>(sum_call);
+      assert(sum_call_inst);
+      SumInstructions.push_back(sum_call_inst);
     }
   }
 
@@ -296,13 +306,29 @@ PreservedAnalyses AddToSum::run(Function &F, FunctionAnalysisManager &FAM) {
     // This check is necessary because some `sub` instructions might not
     // actually have been replaced by `sum`
     if ((*inst)->use_empty()) {
+      DeletedInstructions.insert(*inst);
       (*inst)->eraseFromParent();
     }
   }
 
   for (auto &inst : CheckForDeletion) {
-    if (inst->use_empty()) {
-      (inst->eraseFromParent());
+    if (!DeletedInstructions.count(inst) && inst->use_empty()) {
+      inst->eraseFromParent();
+    }
+  }
+
+  /* ===== PHASE 6 ============================
+   * Shift operands down if possible */
+  for (auto &sum_inst : SumInstructions) {
+    for (int idx = 0; idx < sum_inst->getNumOperands(); ++idx) {
+      Value *arg = sum_inst->getOperand(idx);
+      if (auto arg_inst = dyn_cast<Instruction>(arg)) {
+        if (arg_inst->hasOneUse() && !arg_inst->mayHaveSideEffects() &&
+            arg_inst->getParent() == sum_inst->getParent()) {
+          assert(*arg_inst->user_begin() == sum_inst);
+          arg_inst->moveBefore(sum_inst);
+        }
+      }
     }
   }
 

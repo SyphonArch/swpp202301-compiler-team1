@@ -1,7 +1,11 @@
-Source Name,Class Name,Pass Name,Unit Test Prefix
-gvn_pass,GVNpass,gvn-pass,GVN
-bias_to_false_branch,BiasToFalseBranch,bias-to-false-branch,bias_to_false_branch
-add_to_sum,AddToSum,add-to-sum,add_to_sum
-arithmetic_pass,ArithmeticPass,arithmetic-pass,arithmetic_pass
-use_async_load,UseAsyncLoad,use-async-load,useasyncload
-gep_eliminate,GEPEliminatePass,gep-elim,gep_elim
+Source Name,Class Name,Pass Name
+gvn_pass,GVNpass,gvn-pass
+lcssa_pass,LCSSApass,lcssa-pass
+bias_to_false_branch,BiasToFalseBranch,bias-to-false-branch
+add_to_sum,AddToSum,add-to-sum
+arithmetic_pass,ArithmeticPass,arithmetic-pass
+use_async_load,UseAsyncLoad,use-async-load
+function_inlining,FunctionInlining,function-inlining
+loop_unrolling,LoopUnrolling,loop-unrolling
+register_pressure_analysis,RegisterPressurePrinterPass,register-pressure-printer-pass
+gep_eliminate,GEPEliminatePass,gep-elim
