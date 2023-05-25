@@ -5,13 +5,15 @@
 
 #include "print_ir.h"
 
-#include "./opt/gvn_pass.h"
-#include "./opt/bias_to_false_branch.h"
 #include "./opt/add_to_sum.h"
 #include "./opt/arithmetic_pass.h"
+#include "./opt/bias_to_false_branch.h"
+#include "./opt/function_inlining.h"
+#include "./opt/gvn_pass.h"
+#include "./opt/lcssa_pass.h"
 #include "./opt/use_async_load.h"
+#include "./opt/loop_unrolling.h"
 #include "./opt/gep_eliminate.h"
-
 using namespace std::string_literals;
 
 namespace sc::opt {
@@ -34,6 +36,8 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add function-level opt passes below
 
     FPM.addPass(gvn_pass::GVNpass());
+    FPM.addPass(lcssa_pass::LCSSApass());
+    FPM.addPass(loop_unrolling::LoopUnrolling());
     FPM.addPass(bias_to_false_branch::BiasToFalseBranch());
     FPM.addPass(add_to_sum::AddToSum());
     FPM.addPass(arithmetic_pass::ArithmeticPass());
@@ -44,6 +48,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add CGSCC-level opt passes below
 
     MPM.addPass(llvm::createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
+    MPM.addPass(function_inlining::FunctionInlining());
     // Add module-level opt passes below
 
     MPM.run(*__M, __MAM);
