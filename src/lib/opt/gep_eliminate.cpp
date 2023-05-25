@@ -54,173 +54,6 @@ PreservedAnalyses GEPEliminatePass::run(Function &F,
                                         FunctionAnalysisManager &FAM) {
   llvm::IntegerType *Int64Ty = llvm::Type::getInt64Ty(F.getContext());
 
-  // Perform loop analysis-based optimizations here
-  LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
-
-  //two whole iteration needed
-  //first we have to loop all over and look for PHI nodes that are possible
-  //second we loop again, and for the possible phi nodes, optimize
-  std::vector<Instruction *> vec;
-  // look for phi node
-  for (Function::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-    for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
-      Instruction *inst = &*I;
-      if (PHINode *phiNode = dyn_cast<PHINode>(inst)) {
-        Instruction *chain = phiNode;
-        bool is_first_getele = true;
-        Instruction *J;
-        bool is_opti_possible = true;
-        for (Function::iterator BBB = BB, E = F.end(); BBB != E; ++BBB) {
-          for (BasicBlock::iterator II = BBB->begin(), E = BBB->end(); II != E;++II) {
-            for (Use &operand : II->operands()) {
-              Value *value = operand.get();
-              if (Instruction *operandInst = dyn_cast<Instruction>(value)) {
-                if (operandInst == chain) {
-                  if (GetElementPtrInst *GEPI =
-                          llvm::dyn_cast<llvm::GetElementPtrInst>(&II)) {
-                    continue;
-                  } 
-                  CallInst *callInst = dyn_cast<CallInst>(&II);
-                  Function *calledFunction = callInst->getCalledFunction();
-                  if (calledFunction && calledFunction->getName() == "incr_i64") {
-                    continue;
-                  }
-                  is_opti_possible = false;
-                  break;
-                }
-              }
-            }
-            if(!is_opti_possible) break;
-            if (GetElementPtrInst *GEPI =
-                    llvm::dyn_cast<llvm::GetElementPtrInst>(&II)) {
-              unsigned numOp = GEPI->getNumOperands();
-              Value *idxOp;
-              if (numOp >= 2) {
-                // retrive i
-                idxOp = GEPI->getOperand(1);
-              } else {
-                // if there are more than 1 index, just return, dont now how to deal with these
-                continue;
-              }
-              if (idxOp != chain)
-                continue;
-
-              // found getele in chain
-              if (is_first_getele) {
-                J = GEPI;
-              } else {
-                // this is not the first getelement that uses i
-
-              }
-            }
-            CallInst *callInst = dyn_cast<CallInst>(&II);
-            Function *calledFunction = callInst->getCalledFunction();
-            if (calledFunction && calledFunction->getName() == "incr_i64") {
-              
-            }
-          }
-          if(!is_opti_possible) break;
-        }
-
-        if(is_opti_possible) {
-          vec.push_back(phiNode);
-        }
-      }
-    }
-  }
-
-  // test for loop analysis
-  /*
-  for (Loop *L : LI) {
-    BasicBlock *Header = L->getHeader();
-    for (auto &PHI : Header->phis()) {
-      if (isInductionVariable(PHI)) {
-        llvm::errs() << "Induction variable found: " << PHI << "\n";
-      }
-    }
-  }
-*/
-
-  /*
-    //look for getelim instruction
-    for (BasicBlock &BB : F) {
-      for (Instruction &I : BB) {
-        if (GetElementPtrInst *GEPI =
-                llvm::dyn_cast<llvm::GetElementPtrInst>(&I)) {
-
-          // if a getelip instruction is found, look for the instructions that
-    uses the second operand of gep as operand for add Value *ptrOp =
-    GEPI->getPointerOperand(); Type *curr = ptrOp->getType(); curr =
-    curr->getPointerElementType();
-          //curr is the type of pointer operand
-
-          unsigned numOp = GEPI->getNumOperands();
-          Value *idxOp;
-          if(numOp >= 2) {
-            //retrive i
-            idxOp = GEPI->getOperand(1);
-          } else {
-            //if there are more than 1 index, just return, dont now how to deal
-    with these continue;
-          }
-
-          //so we found operand i that is used in getele
-          //look for instruction that uses idx as operand
-          //if the chain is longer than 2, we ignore
-          int chain_len = 0;
-          int cannot_change = 0;
-
-          for (Instruction &II : BB) {
-            for (Use &operand : II.operands()) {
-
-              // find instruction that uses idxOp
-              if (operand.get() == idxOp) {
-                if(chain_len != 0) {
-                  //the length of the chain is longer than 1
-                  //cannot change
-                  cannot_change = 1;
-                  break;
-                }
-
-                // we only look for II that is incr function call, and that incr
-    should be i64 type if (CallInst *callInst = dyn_cast<CallInst>(&II)) {
-                  Function *calledFunction = callInst->getCalledFunction();
-                  if (calledFunction && calledFunction->getName() == "incr_i64")
-    { chain_len++; idxOp = calledFunction; } else { cannot_change = 1; break;
-                  }
-                } else {
-                  //i is not used in incr, but it is used differently
-                  //cannot change this code
-                  cannot_change = 1;
-                  break;
-                }
-              }
-            }
-            if(cannot_change == 1) break;
-          }
-          if(cannot_change == 1) continue;
-
-          //in the running program comes here, it means the chain has length 1
-    and can be optimized
-
-          for (Instruction &II : BB) {
-            for (Use &operand : II.operands()) {
-              if (operand.get() == idxOp) {
-
-                // we make a new variable j that uses
-                if (CallInst *callInst = dyn_cast<CallInst>(&II)) {
-                  Function *calledFunction = callInst->getCalledFunction();
-
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  */
-  // deleting get element ptr
-  // only availble for int and point types
 
   std::set<llvm::GetElementPtrInst *> trashBin;
 
@@ -321,6 +154,176 @@ extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
 // below here is unfinished!
 // it will go through instructions and find chains that should be copied and
 // make a new variable
+
+/*
+  // Perform loop analysis-based optimizations here
+  LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
+
+  //two whole iteration needed
+  //first we have to loop all over and look for PHI nodes that are possible
+  //second we loop again, and for the possible phi nodes, optimize
+  std::vector<Instruction *> vec;
+  // look for phi node
+  for (Function::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
+    for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+      Instruction *inst = &*I;
+      if (PHINode *phiNode = dyn_cast<PHINode>(inst)) {
+        Instruction *chain = phiNode;
+        bool is_first_getele = true;
+        Instruction *J;
+        bool is_opti_possible = true;
+        for (Function::iterator BBB = BB, E = F.end(); BBB != E; ++BBB) {
+          for (BasicBlock::iterator II = BBB->begin(), E = BBB->end(); II != E;++II) {
+            for (Use &operand : II->operands()) {
+              Value *value = operand.get();
+              if (Instruction *operandInst = dyn_cast<Instruction>(value)) {
+                if (operandInst == chain) {
+                  if (GetElementPtrInst *GEPI =
+                          llvm::dyn_cast<llvm::GetElementPtrInst>(&II)) {
+                    continue;
+                  } 
+                  CallInst *callInst = dyn_cast<CallInst>(&II);
+                  Function *calledFunction = callInst->getCalledFunction();
+                  if (calledFunction && calledFunction->getName() == "incr_i64") {
+                    continue;
+                  }
+                  is_opti_possible = false;
+                  break;
+                }
+              }
+            }
+            if(!is_opti_possible) break;
+            if (GetElementPtrInst *GEPI =
+                    llvm::dyn_cast<llvm::GetElementPtrInst>(&II)) {
+              unsigned numOp = GEPI->getNumOperands();
+              Value *idxOp;
+              if (numOp >= 2) {
+                // retrive i
+                idxOp = GEPI->getOperand(1);
+              } else {
+                // if there are more than 1 index, just return, dont now how to deal with these
+                continue;
+              }
+              if (idxOp != chain)
+                continue;
+
+              // found getele in chain
+              if (is_first_getele) {
+                J = GEPI;
+              } else {
+                // this is not the first getelement that uses i
+
+              }
+            }
+            CallInst *callInst = dyn_cast<CallInst>(&II);
+            Function *calledFunction = callInst->getCalledFunction();
+            if (calledFunction && calledFunction->getName() == "incr_i64") {
+              
+            }
+          }
+          if(!is_opti_possible) break;
+        }
+
+        if(is_opti_possible) {
+          vec.push_back(phiNode);
+        }
+      }
+    }
+  }
+*/
+  // test for loop analysis
+  /*
+  for (Loop *L : LI) {
+    BasicBlock *Header = L->getHeader();
+    for (auto &PHI : Header->phis()) {
+      if (isInductionVariable(PHI)) {
+        llvm::errs() << "Induction variable found: " << PHI << "\n";
+      }
+    }
+  }
+*/
+
+  /*
+    //look for getelim instruction
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        if (GetElementPtrInst *GEPI =
+                llvm::dyn_cast<llvm::GetElementPtrInst>(&I)) {
+
+          // if a getelip instruction is found, look for the instructions that
+    uses the second operand of gep as operand for add Value *ptrOp =
+    GEPI->getPointerOperand(); Type *curr = ptrOp->getType(); curr =
+    curr->getPointerElementType();
+          //curr is the type of pointer operand
+
+          unsigned numOp = GEPI->getNumOperands();
+          Value *idxOp;
+          if(numOp >= 2) {
+            //retrive i
+            idxOp = GEPI->getOperand(1);
+          } else {
+            //if there are more than 1 index, just return, dont now how to deal
+    with these continue;
+          }
+
+          //so we found operand i that is used in getele
+          //look for instruction that uses idx as operand
+          //if the chain is longer than 2, we ignore
+          int chain_len = 0;
+          int cannot_change = 0;
+
+          for (Instruction &II : BB) {
+            for (Use &operand : II.operands()) {
+
+              // find instruction that uses idxOp
+              if (operand.get() == idxOp) {
+                if(chain_len != 0) {
+                  //the length of the chain is longer than 1
+                  //cannot change
+                  cannot_change = 1;
+                  break;
+                }
+
+                // we only look for II that is incr function call, and that incr
+    should be i64 type if (CallInst *callInst = dyn_cast<CallInst>(&II)) {
+                  Function *calledFunction = callInst->getCalledFunction();
+                  if (calledFunction && calledFunction->getName() == "incr_i64")
+    { chain_len++; idxOp = calledFunction; } else { cannot_change = 1; break;
+                  }
+                } else {
+                  //i is not used in incr, but it is used differently
+                  //cannot change this code
+                  cannot_change = 1;
+                  break;
+                }
+              }
+            }
+            if(cannot_change == 1) break;
+          }
+          if(cannot_change == 1) continue;
+
+          //in the running program comes here, it means the chain has length 1
+    and can be optimized
+
+          for (Instruction &II : BB) {
+            for (Use &operand : II.operands()) {
+              if (operand.get() == idxOp) {
+
+                // we make a new variable j that uses
+                if (CallInst *callInst = dyn_cast<CallInst>(&II)) {
+                  Function *calledFunction = callInst->getCalledFunction();
+
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  */
+  // deleting get element ptr
+  // only availble for int and point types
+
 
 // now look for the values used in
 /*
