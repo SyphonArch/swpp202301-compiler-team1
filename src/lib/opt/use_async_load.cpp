@@ -43,10 +43,22 @@ int getMinCost(Instruction *I) {
       return 0;
     } else if (name.startswith("aload_i") || name.startswith("incr_i") || name.startswith("decr_i")) {
       return 1;
+    } //added oracle, maybe not that useful but who knows?
+    else if (name.startswith("oracle")) {
+      return 40;
     } else {
       return 2 + argNum;
     }
-  } else {
+  } 
+  //newly added!
+  else if(auto *getele = dyn_cast<CallInst>(I)) {
+    //getelementptr operation spends 6 cost
+    return 6;
+  } else if(auto *getele = dyn_cast<StoreInst>(I)) {
+    return 34;
+  } else if(auto *getele = dyn_cast<LoadInst>(I)) {
+    return 24;
+  }   else {
     return 1;
   }
 }
@@ -84,14 +96,71 @@ bool isAloadCall(Instruction &I) {
          callInst->getCalledFunction()->getName().startswith("aload_i");
 }
 
+//newly added!
+//cannot move over two way branch
+//if the parent of the current block is the two way branch, it means there can the next block might not be the curr block
+//so if we move the instruction from curr to parent, that instruction might be executed more than needed
+
+bool isTwoWayBranchInstruction(llvm::Instruction *inst) {
+  if (llvm::BranchInst *branchInst = llvm::dyn_cast<llvm::BranchInst>(inst)) {
+    return branchInst->isConditional() && branchInst->getNumSuccessors() == 2;
+  }
+  return false;
+}
+
+//check all operand in getelementptr instruction and see if and of its operand is the prior instruction
+bool isOperandInList(const GetElementPtrInst *getelelist, const Instruction *priorgeteleInst) {
+  for (const Use &use : getelelist->operands()) {
+    if (use.get() == priorgeteleInst) {
+      return true;
+    }
+  }
+  return false;
+}
+
 namespace sc::opt::use_async_load {
 PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
+
+  //first, if the name of the function is 'oracle', do not use aload   
+  StringRef functionName = F.getName(); 
+  if (functionName.equals("oracle")) {
+    return PreservedAnalyses::all();
+  }
+
   DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
   for (BasicBlock &BB : F) {
     if(BB.empty())
       continue;
     // Part 1 : Move load instructions up
     for (Instruction &I : BB) {
+
+      //newly added!!
+
+      // in this part, we check if the instruction is getelement ptr, and move it upwards
+      // for safety, at first we dont move it over phi or def of it
+      if (dyn_cast<GetElementPtrInst>(&I)) {
+        GetElementPtrInst *getelelist = dyn_cast<GetElementPtrInst>(&I);
+        Instruction *priorgeteleInst = getelelist->getPrevNode();
+
+        //make a new variable
+        //this will count tue number of costs that will be reduced by changing positions
+        //in here, it is the getelementptr instruction that are moving, not load, but almost the same!
+        //if the reduced cost is bigger than 24, which is the max coost that can be reduced, do not move further!
+        //this is used to somewhat prevent register spilling
+        int cost_may_reduce_getele = 0;
+        while (priorgeteleInst) {
+          if (dyn_cast<PHINode>(priorgeteleInst) ||
+          dyn_cast<GetElementPtrInst>(priorgeteleInst))
+            break;
+          if (isOperandInList(getelelist, priorgeteleInst))
+            break;
+          cost_may_reduce_getele += getMinCost(priorgeteleInst);
+          getelelist->moveBefore(priorgeteleInst);
+          priorgeteleInst = getelelist->getPrevNode();
+          if(cost_may_reduce_getele >= 24) break;
+        }
+      }
+
       if (!dyn_cast<LoadInst>(&I))
         continue;
 
@@ -101,16 +170,34 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
 
       // Find loadInst, starting from BB.begin(). Move up if priorLoadInst (1) is not a load / store / PHINode instruction. (2) does not define loadPtr.
       // For Later: Optimize relative order of load instructions? Currently, initial ordering of load instructions is left unchanged.
+
+      // new conditions added
+      // 1. is twowaybranchinstruction
+      // do not go over 2 way branch
+      // it might increase cost
+      
+      // 2. getelementptr
+      // if we let the load instruction go over getelementptr, inf loop occurs
+
+      // 3. if cost_may_reduce >= 24 break
+      // this will help us prevent register spilling
+      
+      int cost_may_reduce_load = 0;
+
       while (priorLoadInst) {
         if (dyn_cast<StoreInst>(priorLoadInst) ||
             dyn_cast<LoadInst>(priorLoadInst) ||
             dyn_cast<PHINode>(priorLoadInst) ||
-            priorLoadInst->mayReadOrWriteMemory())
+            priorLoadInst->mayReadOrWriteMemory() ||
+            isTwoWayBranchInstruction(priorLoadInst) ||
+            dyn_cast<GetElementPtrInst>(priorLoadInst))
           break;
         if (loadPtr == priorLoadInst)
           break;
+        cost_may_reduce_load += getMinCost(priorLoadInst);
         loadInst->moveBefore(priorLoadInst);
         priorLoadInst = loadInst->getPrevNode();
+        if(cost_may_reduce_load >= 24) break;
       }
 
       // Part 2: Move instructions that does not use loadInst up.
