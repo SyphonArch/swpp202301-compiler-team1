@@ -8,4 +8,4 @@ use_async_load,UseAsyncLoad,use-async-load
 function_inlining,FunctionInlining,function-inlining
 loop_unrolling,LoopUnrolling,loop-unrolling
 register_pressure_analysis,RegisterPressurePrinterPass,register-pressure-printer-pass
-gep_eliminate,GEPEliminatePass,gep-elim
+gep_elim,GEPEliminatePass,gep-elim

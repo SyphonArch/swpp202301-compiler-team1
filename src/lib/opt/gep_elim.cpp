@@ -1,10 +1,6 @@
-#include "gep_eliminate.h"
+#include "gep_elim.h"
 
-#include "arithmetic_pass.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/LoopAnalysisManager.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -17,10 +13,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/LoopUtils.h"
-#include <llvm/Analysis/LoopInfo.h>
 #include <vector>
 
 using namespace llvm;
@@ -29,31 +22,19 @@ using namespace std::string_literals;
 
 namespace sc::opt::gep_elim {
 
-static bool isInductionVariable(PHINode &PHI) {
-  // Check if the PHI node has two incoming values, one of which is a constant
-  // increment/decrement
-  if (PHI.getNumIncomingValues() == 2) {
-    Value *IncValue = nullptr;
-    Value *OtherValue = nullptr;
-    for (unsigned i = 0; i < 2; ++i) {
-      Value *IncomingValue = PHI.getIncomingValue(i);
-      if (isa<ConstantInt>(IncomingValue))
-        IncValue = IncomingValue;
-      else
-        OtherValue = IncomingValue;
-    }
-    if (IncValue && OtherValue) {
-      // Verify that the other incoming value is the PHI node itself
-      return PHI.getOperand(0) == OtherValue || PHI.getOperand(1) == OtherValue;
-    }
-  }
-  return false;
-}
-
 PreservedAnalyses GEPEliminatePass::run(Function &F,
                                         FunctionAnalysisManager &FAM) {
   llvm::IntegerType *Int64Ty = llvm::Type::getInt64Ty(F.getContext());
 
+  // we dont change anything when the function name is oracle
+  // oracle function has line conditions, so we cannot change the number of
+  // lines in that function in the backend, getelementptr is changed after
+  // counting oracle instruction numbers
+
+  StringRef functionName = F.getName(); // Get the name of the function
+  if (functionName.equals("oracle")) {
+    return PreservedAnalyses::all();
+  }
 
   std::set<llvm::GetElementPtrInst *> trashBin;
 
@@ -64,64 +45,114 @@ PreservedAnalyses GEPEliminatePass::run(Function &F,
               llvm::dyn_cast<llvm::GetElementPtrInst>(&I)) {
 
         llvm::Value *ptrOp = GEPI->getPointerOperand();
+
+        // if the number of index operands is bigger than 1, we cannot optimize
+        unsigned int numIndices = GEPI->getNumIndices();
+        if (numIndices > 1)
+          continue;
+
         llvm::Type *curr = ptrOp->getType();
         curr = curr->getPointerElementType();
 
-        llvm::Instruction *pti =
-            llvm::CastInst::CreateBitOrPointerCast(ptrOp, Int64Ty, "", GEPI);
-
+        // a vector that will keep changed instructions
         std::vector<llvm::Instruction *> v;
-        v.push_back(pti);
 
+        auto opIt = GEPI->getOperand(1);
+        llvm::Value *op = opIt;
+
+        // change ck to 1 if we cannot optimize
         int ck = 0;
 
-        for (auto opIt = GEPI->idx_begin(); opIt != GEPI->idx_end(); ++opIt) {
-          llvm::Value *op = *opIt;
-
-          uint64_t size;
-          if (llvm::isa<llvm::PointerType>(curr)) {
+        // get the size of the pointer operand
+        uint64_t size;
+        if (llvm::isa<llvm::PointerType>(curr)) {
+          size = 8UL;
+        } else if (llvm::isa<llvm::IntegerType>(curr)) {
+          switch (curr->getIntegerBitWidth()) {
+          case 1:
+          case 8:
+            size = 1UL;
+            break;
+          case 16:
+            size = 2UL;
+            break;
+          case 32:
+            size = 4UL;
+            break;
+          case 64:
             size = 8UL;
-          } else if (llvm::isa<llvm::IntegerType>(curr)) {
-            switch (curr->getIntegerBitWidth()) {
-            case 1:
-            case 8:
-              size = 1UL;
-              break;
-            case 16:
-              size = 2UL;
-              break;
-            case 32:
-              size = 4UL;
-              break;
-            case 64:
-              size = 8UL;
-              break;
-            default:
-              ck = 1;
-              break;
-            }
-            if (ck == 1)
-              break;
-          } else {
+            break;
+          default:
             ck = 1;
             break;
           }
+          if (ck == 1)
+            continue;
+        } else {
+          // if the type that we want to load is not pointer nor integer, we
+          // cannot optimize
+          continue;
+        }
 
-          if (op->getType() ==
-              llvm::ConstantInt::get(Int64Ty, size, true)->getType()) {
-            llvm::Instruction *mul = llvm::BinaryOperator::CreateMul(
-                op, llvm::ConstantInt::get(Int64Ty, size, true), "", GEPI);
-            llvm::Instruction *add =
-                llvm::BinaryOperator::CreateAdd(v.back(), mul, "", GEPI);
-            v.push_back(add);
+        // we check whether this getelement instruction can be optimized
+        // only adding 0 to 3 const can be optimized
+        // we first change getelement instruction using add, but later
+        // arithmetic pass will change add into incr
+
+        if (op->getType() ==
+            llvm::ConstantInt::get(Int64Ty, size, true)->getType()) {
+          if (llvm::ConstantInt *constInt =
+                  llvm::dyn_cast<llvm::ConstantInt>(op)) {
+
+            // make a ptrtoint instruction
+            llvm::Instruction *pti = llvm::CastInst::CreateBitOrPointerCast(
+                ptrOp, Int64Ty, "", GEPI);
+
+            v.push_back(pti);
+
+            if (constInt->equalsInt(0)) {
+              // do nothing
+              // but it is actually optimizing by eliminating useless
+              // getelementptr instruction
+            } else if (constInt->equalsInt(1) || constInt->equalsInt(2) ||
+                       constInt->equalsInt(3)) {
+
+              // only add of constant 1, 2, 3 can be optimized
+              // or else the change will increase cost
+
+              uint64_t const_val = constInt->getZExtValue();
+
+              // if size == 1, or i8 type, we dont have to use div and mul
+              // because it will div and mul by 1
+              if (size != 1) {
+                llvm::Instruction *div = llvm::BinaryOperator::CreateUDiv(
+                    v.back(), llvm::ConstantInt::get(Int64Ty, size, true), "",
+                    GEPI);
+                llvm::Instruction *add = llvm::BinaryOperator::CreateAdd(
+                    div, ConstantInt::get(div->getType(), const_val), "", GEPI);
+                llvm::Instruction *mul = llvm::BinaryOperator::CreateMul(
+                    add, llvm::ConstantInt::get(Int64Ty, size, true), "", GEPI);
+                v.push_back(mul);
+              } else {
+                llvm::Instruction *add = llvm::BinaryOperator::CreateAdd(
+                    v.back(), ConstantInt::get(v.back()->getType(), const_val),
+                    "", GEPI);
+                v.push_back(add);
+              }
+            } else {
+              ck = 1;
+            }
           } else {
             ck = 1;
           }
+        } else {
+          ck = 1;
         }
 
         if (ck == 1)
           continue;
 
+        // make a inttoptr instruction
         llvm::Instruction *itp = llvm::CastInst::CreateBitOrPointerCast(
             v.back(), I.getType(), "", GEPI);
         GEPI->replaceAllUsesWith(itp);
@@ -151,9 +182,40 @@ extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
 }
 }; // namespace sc::opt::gep_elim
 
+/*
+              llvm::Instruction *mul = llvm::BinaryOperator::CreateMul(
+                  op, llvm::ConstantInt::get(Int64Ty, size, true), "", GEPI);
+              llvm::Instruction *add =
+                  llvm::BinaryOperator::CreateAdd(v.back(), mul, "", GEPI);
+              v.push_back(add);
+*/
+
 // below here is unfinished!
 // it will go through instructions and find chains that should be copied and
 // make a new variable
+
+/*
+static bool isInductionVariable(PHINode &PHI) {
+  // Check if the PHI node has two incoming values, one of which is a constant
+  // increment/decrement
+  if (PHI.getNumIncomingValues() == 2) {
+    Value *IncValue = nullptr;
+    Value *OtherValue = nullptr;
+    for (unsigned i = 0; i < 2; ++i) {
+      Value *IncomingValue = PHI.getIncomingValue(i);
+      if (isa<ConstantInt>(IncomingValue))
+        IncValue = IncomingValue;
+      else
+        OtherValue = IncomingValue;
+    }
+    if (IncValue && OtherValue) {
+      // Verify that the other incoming value is the PHI node itself
+      return PHI.getOperand(0) == OtherValue || PHI.getOperand(1) == OtherValue;
+    }
+  }
+  return false;
+}
+*/
 
 /*
   // Perform loop analysis-based optimizations here
@@ -173,19 +235,18 @@ extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
         Instruction *J;
         bool is_opti_possible = true;
         for (Function::iterator BBB = BB, E = F.end(); BBB != E; ++BBB) {
-          for (BasicBlock::iterator II = BBB->begin(), E = BBB->end(); II != E;++II) {
-            for (Use &operand : II->operands()) {
-              Value *value = operand.get();
+          for (BasicBlock::iterator II = BBB->begin(), E = BBB->end(); II !=
+  E;++II) { for (Use &operand : II->operands()) { Value *value = operand.get();
               if (Instruction *operandInst = dyn_cast<Instruction>(value)) {
                 if (operandInst == chain) {
                   if (GetElementPtrInst *GEPI =
                           llvm::dyn_cast<llvm::GetElementPtrInst>(&II)) {
                     continue;
-                  } 
+                  }
                   CallInst *callInst = dyn_cast<CallInst>(&II);
                   Function *calledFunction = callInst->getCalledFunction();
-                  if (calledFunction && calledFunction->getName() == "incr_i64") {
-                    continue;
+                  if (calledFunction && calledFunction->getName() == "incr_i64")
+  { continue;
                   }
                   is_opti_possible = false;
                   break;
@@ -201,8 +262,8 @@ extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
                 // retrive i
                 idxOp = GEPI->getOperand(1);
               } else {
-                // if there are more than 1 index, just return, dont now how to deal with these
-                continue;
+                // if there are more than 1 index, just return, dont now how to
+  deal with these continue;
               }
               if (idxOp != chain)
                 continue;
@@ -218,7 +279,7 @@ extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
             CallInst *callInst = dyn_cast<CallInst>(&II);
             Function *calledFunction = callInst->getCalledFunction();
             if (calledFunction && calledFunction->getName() == "incr_i64") {
-              
+
             }
           }
           if(!is_opti_possible) break;
@@ -231,99 +292,98 @@ extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
     }
   }
 */
-  // test for loop analysis
-  /*
-  for (Loop *L : LI) {
-    BasicBlock *Header = L->getHeader();
-    for (auto &PHI : Header->phis()) {
-      if (isInductionVariable(PHI)) {
-        llvm::errs() << "Induction variable found: " << PHI << "\n";
-      }
+// test for loop analysis
+/*
+for (Loop *L : LI) {
+  BasicBlock *Header = L->getHeader();
+  for (auto &PHI : Header->phis()) {
+    if (isInductionVariable(PHI)) {
+      llvm::errs() << "Induction variable found: " << PHI << "\n";
     }
   }
+}
 */
 
-  /*
-    //look for getelim instruction
-    for (BasicBlock &BB : F) {
-      for (Instruction &I : BB) {
-        if (GetElementPtrInst *GEPI =
-                llvm::dyn_cast<llvm::GetElementPtrInst>(&I)) {
+/*
+  //look for getelim instruction
+  for (BasicBlock &BB : F) {
+    for (Instruction &I : BB) {
+      if (GetElementPtrInst *GEPI =
+              llvm::dyn_cast<llvm::GetElementPtrInst>(&I)) {
 
-          // if a getelip instruction is found, look for the instructions that
-    uses the second operand of gep as operand for add Value *ptrOp =
-    GEPI->getPointerOperand(); Type *curr = ptrOp->getType(); curr =
-    curr->getPointerElementType();
-          //curr is the type of pointer operand
+        // if a getelip instruction is found, look for the instructions that
+  uses the second operand of gep as operand for add Value *ptrOp =
+  GEPI->getPointerOperand(); Type *curr = ptrOp->getType(); curr =
+  curr->getPointerElementType();
+        //curr is the type of pointer operand
 
-          unsigned numOp = GEPI->getNumOperands();
-          Value *idxOp;
-          if(numOp >= 2) {
-            //retrive i
-            idxOp = GEPI->getOperand(1);
-          } else {
-            //if there are more than 1 index, just return, dont now how to deal
-    with these continue;
-          }
+        unsigned numOp = GEPI->getNumOperands();
+        Value *idxOp;
+        if(numOp >= 2) {
+          //retrive i
+          idxOp = GEPI->getOperand(1);
+        } else {
+          //if there are more than 1 index, just return, dont now how to deal
+  with these continue;
+        }
 
-          //so we found operand i that is used in getele
-          //look for instruction that uses idx as operand
-          //if the chain is longer than 2, we ignore
-          int chain_len = 0;
-          int cannot_change = 0;
+        //so we found operand i that is used in getele
+        //look for instruction that uses idx as operand
+        //if the chain is longer than 2, we ignore
+        int chain_len = 0;
+        int cannot_change = 0;
 
-          for (Instruction &II : BB) {
-            for (Use &operand : II.operands()) {
+        for (Instruction &II : BB) {
+          for (Use &operand : II.operands()) {
 
-              // find instruction that uses idxOp
-              if (operand.get() == idxOp) {
-                if(chain_len != 0) {
-                  //the length of the chain is longer than 1
-                  //cannot change
-                  cannot_change = 1;
-                  break;
+            // find instruction that uses idxOp
+            if (operand.get() == idxOp) {
+              if(chain_len != 0) {
+                //the length of the chain is longer than 1
+                //cannot change
+                cannot_change = 1;
+                break;
+              }
+
+              // we only look for II that is incr function call, and that incr
+  should be i64 type if (CallInst *callInst = dyn_cast<CallInst>(&II)) {
+                Function *calledFunction = callInst->getCalledFunction();
+                if (calledFunction && calledFunction->getName() == "incr_i64")
+  { chain_len++; idxOp = calledFunction; } else { cannot_change = 1; break;
                 }
-
-                // we only look for II that is incr function call, and that incr
-    should be i64 type if (CallInst *callInst = dyn_cast<CallInst>(&II)) {
-                  Function *calledFunction = callInst->getCalledFunction();
-                  if (calledFunction && calledFunction->getName() == "incr_i64")
-    { chain_len++; idxOp = calledFunction; } else { cannot_change = 1; break;
-                  }
-                } else {
-                  //i is not used in incr, but it is used differently
-                  //cannot change this code
-                  cannot_change = 1;
-                  break;
-                }
+              } else {
+                //i is not used in incr, but it is used differently
+                //cannot change this code
+                cannot_change = 1;
+                break;
               }
             }
-            if(cannot_change == 1) break;
           }
-          if(cannot_change == 1) continue;
+          if(cannot_change == 1) break;
+        }
+        if(cannot_change == 1) continue;
 
-          //in the running program comes here, it means the chain has length 1
-    and can be optimized
+        //in the running program comes here, it means the chain has length 1
+  and can be optimized
 
-          for (Instruction &II : BB) {
-            for (Use &operand : II.operands()) {
-              if (operand.get() == idxOp) {
+        for (Instruction &II : BB) {
+          for (Use &operand : II.operands()) {
+            if (operand.get() == idxOp) {
 
-                // we make a new variable j that uses
-                if (CallInst *callInst = dyn_cast<CallInst>(&II)) {
-                  Function *calledFunction = callInst->getCalledFunction();
+              // we make a new variable j that uses
+              if (CallInst *callInst = dyn_cast<CallInst>(&II)) {
+                Function *calledFunction = callInst->getCalledFunction();
 
-                }
               }
             }
           }
         }
       }
     }
-  */
-  // deleting get element ptr
-  // only availble for int and point types
-
+  }
+*/
+// deleting get element ptr
+// only availble for int and point types
 
 // now look for the values used in
 /*

@@ -5,3 +5,4 @@ docs
 # *.ll
 *.s
 tmp/
+swpp202301-benchmarks/
