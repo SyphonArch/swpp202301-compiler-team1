@@ -11,8 +11,9 @@
 #include "./opt/function_inlining.h"
 #include "./opt/gvn_pass.h"
 #include "./opt/lcssa_pass.h"
-#include "./opt/use_async_load.h"
 #include "./opt/loop_unrolling.h"
+#include "./opt/oracle_pass.h"
+#include "./opt/use_async_load.h"
 
 using namespace std::string_literals;
 
@@ -47,6 +48,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
 
     MPM.addPass(llvm::createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
     MPM.addPass(function_inlining::FunctionInlining());
+    MPM.addPass(oracle_pass::OraclePass());
     // Add module-level opt passes below
 
     MPM.run(*__M, __MAM);
