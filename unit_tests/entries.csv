@@ -8,3 +8,4 @@ arithmetic_pass,ArithmeticPass,arithmetic-pass
 use_async_load,UseAsyncLoad,use-async-load
 register_pressure_analysis,RegisterPressurePrinterPass,register-pressure-printer-pass
 function_inlining,FunctionInlining,function-inlining
+oracle_pass,OraclePass,oracle-pass
