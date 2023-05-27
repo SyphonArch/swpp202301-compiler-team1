@@ -16,7 +16,7 @@ entry:
 }
 
 
-; CHECK: efine void @oracle(i32* %ptr) {
+; CHECK: define void @oracle(i32* %ptr) {
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:   %o = add i32 1, 3
 ; CHECK-NEXT:   %p = add i32 1, 3
