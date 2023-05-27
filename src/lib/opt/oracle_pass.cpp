@@ -8,6 +8,7 @@
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
+#include "llvm/ADT/Optional.h"
 
 using namespace llvm;
 
@@ -27,7 +28,7 @@ struct StoreGroups {
 
   // Helper function to handle the stores in a temporary storage.
   void handleTempStores(BasicBlock *BB, std::vector<StoreInst *> &TempStores) {
-    if (TempStores.size() > 1) {
+    if (TempStores.size() > 1 && TempStores.size() <= 8) {
       Groups.push_back(StoreGroup(BB, TempStores));
     }
     TempStores.clear();
@@ -70,7 +71,11 @@ struct StoreGroups {
     }
   }
 
-  StoreGroup getMaxSizeGroup() const {
+  Optional<StoreGroup> getMaxSizeGroup() const {
+    if (Groups.empty()) {
+      return llvm::None;
+    }
+
     return *std::max_element(Groups.begin(), Groups.end(),
                              [](const StoreGroup &a, const StoreGroup &b) {
                                return a.Stores.size() < b.Stores.size();
@@ -145,10 +150,16 @@ PreservedAnalyses OraclePass::run(Module &M, ModuleAnalysisManager &MPM) {
   storeGroups.printGroups();
 
   // Get the StoreGroup with the maximum size
-  StoreGroup maxGroup = storeGroups.getMaxSizeGroup();
+  auto maxGroupOpt = storeGroups.getMaxSizeGroup();
 
-  // Outline the maxGroup
-  outline(maxGroup);
+  // Check if a maxGroup was found
+  if (maxGroupOpt.hasValue()) {
+    // Outline the maxGroup
+    outline(*maxGroupOpt);
+  } else {
+    // Log or handle the case when no group was found
+    LLVM_DEBUG(llvm::dbgs() << "No StoreGroup was found to outline\n");
+  }
 
   return PreservedAnalyses::none();
 };
