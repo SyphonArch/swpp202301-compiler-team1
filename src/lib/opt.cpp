@@ -40,7 +40,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     FPM.addPass(bias_to_false_branch::BiasToFalseBranch());
     FPM.addPass(add_to_sum::AddToSum());
     FPM.addPass(arithmetic_pass::ArithmeticPass());
-    FPM.addPass(use_async_load::UseAsyncLoad());
+//    FPM.addPass(use_async_load::UseAsyncLoad());
 
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
     // Add CGSCC-level opt passes below

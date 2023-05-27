@@ -16,7 +16,6 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <string>
-
 using namespace llvm;
 using namespace std;
 
@@ -118,6 +117,17 @@ bool isOperandInList(const GetElementPtrInst *getelelist, const Instruction *pri
   return false;
 }
 
+//check all operand in getelementptr instruction and see if and of its operand is the prior instruction
+bool hasOperandsext(const SExtInst *sextInst, const Instruction *priorsextInst) {
+  for (const Use &use : sextInst->operands()) {
+    if (use.get() == priorsextInst) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
 namespace sc::opt::use_async_load {
 PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
 
@@ -135,6 +145,34 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
     for (Instruction &I : BB) {
 
       //newly added!!
+
+/*
+      // in this part, we check if the sext instruction
+      // after looking at benchmark programs, sometimes getelementptr instructions were followed by sext instruction
+      // for safety, at first we dont move it over phi or def of it
+      
+      if (dyn_cast<SExtInst>(&I)) {
+        SExtInst *getsextinst = dyn_cast<SExtInst>(&I);
+        Instruction *priorsextInst = getsextinst->getPrevNode();
+
+        //make a new variable
+        //this is used to somewhat prevent register spilling
+        int cost_may_reduce_sext = 0;
+        while (priorsextInst) {
+          if (dyn_cast<PHINode>(priorsextInst) ||
+          dyn_cast<GetElementPtrInst>(priorsextInst) ||
+          dyn_cast<SExtInst>(priorsextInst) ||
+          dyn_cast<ZExtInst>(priorsextInst))
+            break;
+          if (hasOperandsext(getsextinst, priorsextInst))
+            break;
+          cost_may_reduce_sext += getMinCost(priorsextInst);
+          getsextinst->moveBefore(priorsextInst);
+          priorsextInst = getsextinst->getPrevNode();
+          if(cost_may_reduce_sext >= 24) break;
+        }
+      } else 
+*/
 
       // in this part, we check if the instruction is getelement ptr, and move it upwards
       // for safety, at first we dont move it over phi or def of it
