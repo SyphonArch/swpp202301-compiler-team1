@@ -6,3 +6,4 @@ docs
 *.s
 tmp/
 swpp202301-benchmarks/
+test_benchmark_compilation.sh
