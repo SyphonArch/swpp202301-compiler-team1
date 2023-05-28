@@ -37,11 +37,11 @@ entry:
 ; CHECK-NEXT:   store i32 7, i32* %ptrz, align 4
 ; CHECK-NEXT:   %3 = call i32 @aload_i32(i32* %ptrz)
 ; CHECK-NEXT:   %g = add i32 %2, %2
-; CHECK-NEXT:   %f = add i32 0, 0
-; CHECK-NEXT:   %e = add i32 %1, %0
-; CHECK-NEXT:   %h = mul i32 1, 1
 ; CHECK-NEXT:   %d = add i32 %0, %0
 ; CHECK-NEXT:   store i32 %d, i32* %ptra, align 4
+; CHECK-NEXT:   %f = add i32 0, 0
+; CHECK-NEXT:   %h = mul i32 1, 1
+; CHECK-NEXT:   %e = add i32 %1, %0
 ; CHECK-NEXT:   %zz = mul i32 %3, %3
 ; CHECK-NEXT:   ret void
 ; CHECK-NEXT: }
