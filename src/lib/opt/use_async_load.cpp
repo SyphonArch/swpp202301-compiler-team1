@@ -36,8 +36,8 @@ int getMinCost(Instruction *I) {
     assert(fun);
     StringRef name = fun->getName();
     int argNum = fun->getNumOperands();
-    if (name.startswith("int_sum_i") || name.equals("oracle")) {
-      return 5;
+    if (name.startswith("int_sum_i")) {
+      return 10;
     } else if (name.startswith("assert_eq_i")) {
       return 0;
     } else if (name.startswith("aload_i") || name.startswith("incr_i") || name.startswith("decr_i")) {
@@ -50,14 +50,15 @@ int getMinCost(Instruction *I) {
     }
   } 
   //newly added!
-  else if(auto *getele = dyn_cast<CallInst>(I)) {
+  else if(auto *getele = dyn_cast<GetElementPtrInst>(I)) {
     //getelementptr operation spends 6 cost
     return 6;
-  } else if(auto *getele = dyn_cast<StoreInst>(I)) {
+  } else if(auto *storeinst = dyn_cast<StoreInst>(I)) {
     return 34;
-  } else if(auto *getele = dyn_cast<LoadInst>(I)) {
-    return 24;
-  }   else {
+  } else if(auto *loadinst = dyn_cast<LoadInst>(I)) {
+    //it might change into aload, so i just wanted to give and average value...
+    return 12;
+  } else {
     return 1;
   }
 }
@@ -263,6 +264,10 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
         Instruction *priorIndepInst = indepInst->getPrevNode();
 
         // Move up if (1) priorIndepInst is not used in indepInst (2) priorIndepInst is not a load / PHINode instruction
+        //again, move as small as possible to stop register spilling
+
+        int cost_may_reduce_moveindep = 0;
+
         while (priorIndepInst) {
           if (dyn_cast<LoadInst>(priorIndepInst) ||
           dyn_cast<PHINode>(priorIndepInst) ||
@@ -275,8 +280,10 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
           }
           if (usesPriorIndepInst)
             break;
+          cost_may_reduce_moveindep += getMinCost(priorLoadInst);
           indepInst->moveBefore(priorIndepInst);
           priorIndepInst = indepInst->getPrevNode();
+        if(cost_may_reduce_moveindep >= 24) break;
         }
       }
     }
