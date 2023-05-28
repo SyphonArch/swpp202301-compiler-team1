@@ -155,6 +155,8 @@ PreservedAnalyses GEPEliminatePass::run(Function &F,
         // make a inttoptr instruction
         llvm::Instruction *itp = llvm::CastInst::CreateBitOrPointerCast(
             v.back(), I.getType(), "", GEPI);
+
+        //we dont erase the origial instruction in the first loop. put it in a trashcan and in a later loop, we erese it
         GEPI->replaceAllUsesWith(itp);
         trashBin.insert(GEPI);
       }
