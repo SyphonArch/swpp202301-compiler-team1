@@ -50,6 +50,7 @@ int getMinCost(Instruction *I) {
     }
   } 
   //newly added!
+  
   else if(auto *getele = dyn_cast<GetElementPtrInst>(I)) {
     //getelementptr operation spends 6 cost
     return 6;
@@ -57,7 +58,8 @@ int getMinCost(Instruction *I) {
     return 34;
   } else if(auto *getele = dyn_cast<LoadInst>(I)) {
     return 12;
-  }   else {
+  }
+  else {
     return 1;
   }
 }
@@ -264,7 +266,7 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
 
         // Move up if (1) priorIndepInst is not used in indepInst (2) priorIndepInst is not a load / PHINode instruction
         //again, move as small as possible to stop register spilling
-        int cost_may_reduce_moveindep = 0;
+//        int cost_may_reduce_moveindep = 0;
 
         while (priorIndepInst) {
           if (dyn_cast<LoadInst>(priorIndepInst) ||
@@ -278,10 +280,10 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
           }
           if (usesPriorIndepInst)
             break;
-          cost_may_reduce_moveindep += getMinCost(priorLoadInst);
+//          cost_may_reduce_moveindep += getMinCost(priorLoadInst);
           indepInst->moveBefore(priorIndepInst);
           priorIndepInst = indepInst->getPrevNode();
-        if(cost_may_reduce_moveindep >= 24) break;
+//        if(cost_may_reduce_moveindep >= 24) break;
         }
       }
     }
