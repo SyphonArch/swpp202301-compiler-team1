@@ -17,7 +17,7 @@ message(STATUS "Using LLVM in: ${LLVM_BINARY_DIR}")
 # Search for the alive2-tv binary
 find_program(ALIVE_TV_BINARY
   NAMES alive-tv
-  PATHS ${ALIVE2_BINARY_DIR} ~/alive2/build
+  PATHS ${ALIVE2_BINARY_DIR}
 )
 
 # Check if alive2-tv was found
