@@ -22,14 +22,20 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
     for (auto i = BB.begin(), en = BB.end(); i != en;) {
       auto temp = i++;
       Instruction &I = *temp;
-      if (I.getOpcode() == Instruction::Add) {
+
+      //new change! also change order of And instruction!
+      if (I.getOpcode() == Instruction::Add || I.getOpcode() == Instruction::And) {
         Value *Op0 = I.getOperand(0);
         Value *Op1 = I.getOperand(1);
         auto *C0 = dyn_cast<ConstantInt>(Op0);
         auto *C1 = dyn_cast<ConstantInt>(Op1);
         if (C0 && !C1) {
-          Instruction *NewInst =
-              BinaryOperator::Create(Instruction::Add, Op1, Op0);
+          Instruction *NewInst;
+          if(I.getOpcode() == Instruction::Add) {
+            NewInst = BinaryOperator::Create(Instruction::Add, Op1, Op0);
+          } else {
+            NewInst = BinaryOperator::Create(Instruction::And, Op1, Op0);
+          }
           ReplaceInstWithInst((&I), NewInst);
         }
       }
@@ -77,7 +83,8 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
             I.getOpcode() == Instruction::Sub ||
             I.getOpcode() == Instruction::Shl ||
             I.getOpcode() == Instruction::AShr ||
-            I.getOpcode() == Instruction::LShr)) {
+            I.getOpcode() == Instruction::LShr ||
+            I.getOpcode() == Instruction::And)) {
         continue;
       }
 
@@ -112,6 +119,32 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
         if (!C1 && C0 && (C0->getValue() == 0)) {
           NewInst = BinaryOperator::Create(
               Instruction::Mul, Op1, ConstantInt::get(Op1->getType(), -1));
+        }
+      }
+
+      // change and %x 2^c-1 -> urem %x (2^c)
+      if (I.getOpcode() == Instruction::And) {
+        if (!C0 && C1) {
+          if(lval >= 0) {
+            uint32_t lvalp1 = lval + 1;
+            bool is_lval_power_of_2 = false;
+            while(1) {
+              if(lvalp1 == 1 || lvalp1 == 0) {
+                is_lval_power_of_2 = true;
+                break;
+              } 
+              if(lvalp1 % 2 == 1) {
+                is_lval_power_of_2 = false;
+                break;
+              }
+              lvalp1 /= 2;
+            }
+            if(is_lval_power_of_2) {
+              NewInst = BinaryOperator::Create(
+                  Instruction::URem, Op0,
+                  ConstantInt::get(Op0->getType(), (lval + 1)));
+            }
+          }
         }
       }
 
