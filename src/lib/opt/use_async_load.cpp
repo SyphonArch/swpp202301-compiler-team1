@@ -24,6 +24,7 @@ using namespace std;
 // For later:   (1) Check whether all instructions not mentioned are translated into assemblies of nonzero cost.
 //              (2) For further optimization that does not rely on heuristics, exact cost of all instructions are required. 
 //              (3) Cost for resolving aload is not considered.
+
 int getMinCost(Instruction *I) {
   unsigned int Op = I->getOpcode();
   if (isa<SwitchInst>(I) || I->isShift() || I->isBitwiseLogicOp()) {
