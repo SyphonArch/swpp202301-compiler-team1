@@ -53,12 +53,11 @@ int getMinCost(Instruction *I) {
   else if(auto *getele = dyn_cast<GetElementPtrInst>(I)) {
     //getelementptr operation spends 6 cost
     return 6;
-  } else if(auto *storeinst = dyn_cast<StoreInst>(I)) {
+  } else if(auto *getele = dyn_cast<StoreInst>(I)) {
     return 34;
-  } else if(auto *loadinst = dyn_cast<LoadInst>(I)) {
-    //it might change into aload, so i just wanted to give and average value...
+  } else if(auto *getele = dyn_cast<LoadInst>(I)) {
     return 12;
-  } else {
+  }   else {
     return 1;
   }
 }
@@ -265,7 +264,6 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
 
         // Move up if (1) priorIndepInst is not used in indepInst (2) priorIndepInst is not a load / PHINode instruction
         //again, move as small as possible to stop register spilling
-
         int cost_may_reduce_moveindep = 0;
 
         while (priorIndepInst) {
