@@ -1,14 +1,15 @@
 #include "oracle_pass.h"
 
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Utils/CodeExtractor.h"
-#include "llvm/ADT/Optional.h"
 
 using namespace llvm;
 
@@ -18,43 +19,78 @@ struct StoreGroup {
   BasicBlock *ParentBlock;         // Parent BasicBlock
   std::vector<StoreInst *> Stores; // Vector to hold consecutive StoreInst
 
+  // Default Constructor
+  explicit StoreGroup(BasicBlock *BB) : ParentBlock(BB) {}
+
   // Constructor
   StoreGroup(BasicBlock *BB, std::vector<StoreInst *> &Stores)
       : ParentBlock(BB), Stores(Stores) {}
 };
 
+bool isSafeToMoveDownFromBack(StoreInst *SI, BasicBlock::reverse_iterator start,
+                              BasicBlock::reverse_iterator end, AAResults &AA) {
+  MemoryLocation StoreLoc = MemoryLocation::get(SI);
+  for (auto I = ++end; I != start; I++) {
+    if (I->mayReadFromMemory()) {
+      MemoryLocation Loc = MemoryLocation::get(&*I);
+
+      // If the memory locations may alias, it's not safe to move the store
+      // instruction down
+      outs() << AA.alias(StoreLoc, Loc) << "\n";
+      if (AA.alias(StoreLoc, Loc) != AliasResult::Kind::NoAlias) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 struct StoreGroups {
   std::vector<StoreGroup> Groups; // Vector to hold all StoreGroup objects
 
   // Helper function to handle the stores in a temporary storage.
-  void handleTempStores(BasicBlock *BB, std::vector<StoreInst *> &TempStores) {
-    if (TempStores.size() > 1 && TempStores.size() <= 8) {
-      Groups.push_back(StoreGroup(BB, TempStores));
+  void processAndSaveStoreGroup(StoreGroup &currentGroup) {
+    if (currentGroup.Stores.size() > 1 && currentGroup.Stores.size() <= 8) {
+      Groups.push_back(currentGroup);
     }
-    TempStores.clear();
+    currentGroup.Stores.clear();
   }
 
   // Function to gather all StoreGroups in the Module
-  void gatherGroups(Module &M) {
+  void gatherGroups(Module &M, FunctionAnalysisManager &FAM) {
     for (auto &F : M) {
       if (F.getName() != "oracle") {
-        gatherGroups(F);
+        gatherGroups(F, FAM);
       }
     }
   }
 
   // Function to gather all StoreGroups in a Function
-  void gatherGroups(Function &F) {
-    std::vector<StoreInst *> TempStores;
-    for (auto &BB : F) {
-      for (auto &I : BB) {
-        if (auto *SI = dyn_cast<StoreInst>(&I)) {
-          TempStores.push_back(SI);
-        } else {
-          handleTempStores(&BB, TempStores);
+  void gatherGroups(Function &F, FunctionAnalysisManager &FAM) {
+    // Get an alias analysis instance
+    AAResults &AA = FAM.getResult<AAManager>(F);
+
+    for (BasicBlock &BB : F) {
+      StoreGroup currentGroup(&BB);
+
+      // Iterate over the instructions in reverse order, to reduce time
+      // complexity
+      for (BasicBlock::reverse_iterator I = BB.rbegin(), E = BB.rend(); I != E;
+           ++I) {
+        if (auto *SI = dyn_cast<StoreInst>(&*I)) {
+          // Check if Stores are mergable.
+          if (currentGroup.Stores.empty() ||
+              isSafeToMoveDownFromBack(
+                  SI, I, currentGroup.Stores[0]->getReverseIterator(), AA)) {
+            currentGroup.Stores.push_back(SI);
+          } else {
+            processAndSaveStoreGroup(currentGroup);
+            currentGroup.Stores.push_back(SI);
+          }
         }
       }
-      handleTempStores(&BB, TempStores);
+      // Handle remaining currentGroups
+      processAndSaveStoreGroup(currentGroup);
     }
   }
 
@@ -142,9 +178,11 @@ void outline(StoreGroup &group) {
   Builder.CreateRet(Builder.getInt64(0));
 }
 
-PreservedAnalyses OraclePass::run(Module &M, ModuleAnalysisManager &MPM) {
+PreservedAnalyses OraclePass::run(Module &M, ModuleAnalysisManager &MAM) {
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
   StoreGroups storeGroups;
-  storeGroups.gatherGroups(M);
+  storeGroups.gatherGroups(M, FAM);
 
   // Debug print
   storeGroups.printGroups();
