@@ -27,10 +27,11 @@ entry:
 ; CHECK-NEXT:   %add1 = getelementptr i32, i32* %ptr, i64 1
 ; CHECK-NEXT:   %add2 = getelementptr i32, i32* %ptr, i64 2
 ; CHECK-NEXT:   %add3 = getelementptr i32, i32* %ptr, i64 3
-; CHECK-NEXT:   %a1 = load i32, i32* %add1
-; CHECK-NEXT:   %a2 = load i32, i32* %add2
-; CHECK-NEXT:   %a3 = load i32, i32* %add3
+; CHECK-NEXT:   %a1 = load i32, i32* %add1, align 4
+; CHECK-NEXT:   %a2 = load i32, i32* %add2, align 4
+; CHECK-NEXT:   %a3 = load i32, i32* %add3, align 4
 ; CHECK-NEXT:   ret void
 ; CHECK-NEXT: }
+
 
 ; case 6 : if the name of the function is oracle, do not optimize
