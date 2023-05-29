@@ -4,7 +4,6 @@
 
 @num_to_bits = external global [16 x i32], align 16
 
-; CHECK-LABEL: @main
 define i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:

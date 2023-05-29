@@ -5,7 +5,6 @@
 ; Here, we don't know ptr_a is the same with ptr_b (so it may be alias).
 ; So in this case, no outlining to oracle should happen.
 
-; CHECK-LABEL: @may_alias_pointers
 define void @may_alias_pointers(i32* noundef %ptr_a, i32* noundef %ptr_b) {
 ; CHECK-LABEL: @may_alias_pointers(
 ; CHECK-NEXT:  entry:

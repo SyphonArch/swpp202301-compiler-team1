@@ -17,7 +17,6 @@ define i64 @f() {
   ret i64 0
 }
 
-; CHECK-LABEL: @main
 define i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:

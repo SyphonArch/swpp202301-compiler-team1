@@ -4,7 +4,6 @@
 ; Currently, the implementation outlines the largest store group to oracle call
 ; where the store group is defined as "the set of stores that can be reduced to a single call"
 
-; CHECK-LABEL: @cyclic_swap
 define void @cyclic_swap(i32* noundef %ptr_a, i32* noundef %ptr_b, i32* noundef %ptr_c) {
 ; CHECK-LABEL: @cyclic_swap(
 ; CHECK-NEXT:  entry:

@@ -5,7 +5,6 @@
 @M = external global i32, align 4
 @N = external global i32, align 4
 
-; CHECK-LABEL: @main
 define i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:

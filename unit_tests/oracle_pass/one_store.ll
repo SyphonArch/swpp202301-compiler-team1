@@ -3,7 +3,6 @@
 ; This unit tests checks that the oracle pass does not crash
 ; when only a single store instruction exists.
 
-
 define i32 @f(i32* noundef %ptr_a, i32* noundef %ptr_b, i32* noundef %ptr_c) {
 ; CHECK-LABEL: @f(
 ; CHECK-NEXT:  entry:

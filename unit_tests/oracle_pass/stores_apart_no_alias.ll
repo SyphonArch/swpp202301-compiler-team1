@@ -6,7 +6,6 @@
 ; the pointer for load instruction(%arrayidx2 = %arrayidx + 4) is different
 ; from the pointer for store instruction (%arrayidx), which is no alias.
 
-; CHECK-LABEL: @no_alias_pointers
 define void @no_alias_pointers(i32* noundef %ptr_a) {
 ; CHECK-LABEL: @no_alias_pointers(
 ; CHECK-NEXT:  entry:
