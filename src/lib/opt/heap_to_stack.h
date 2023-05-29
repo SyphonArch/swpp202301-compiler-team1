@@ -9,7 +9,7 @@ using namespace llvm;
 namespace sc::opt::heap_to_stack {
 class HeapToStack : public PassInfoMixin<HeapToStack> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
+  static PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
 };
 } // namespace sc::opt::heap_to_stack
 #endif

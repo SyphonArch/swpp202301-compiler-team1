@@ -8,3 +8,4 @@ use_async_load,UseAsyncLoad,use-async-load
 function_inlining,FunctionInlining,function-inlining
 loop_unrolling,LoopUnrolling,loop-unrolling
 register_pressure_analysis,RegisterPressurePrinterPass,register-pressure-printer-pass
+heap_to_stack,HeapToStack,heap-to-stack
