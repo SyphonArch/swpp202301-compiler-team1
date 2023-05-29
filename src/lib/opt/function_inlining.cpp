@@ -231,6 +231,21 @@ bool shouldInline(CallInst *CI) {
     return false;
   }
 
+  // Check if Callee has a call inside
+  for (auto &BB : *Callee) {
+    // Iterate over all instructions in the basic block
+    for (auto &I : BB) {
+      // If the instruction is a call instruction
+      if (auto *CallI = dyn_cast<CallInst>(&I)) {
+        Function *NestedCallee = CallI->getCalledFunction();
+        // If the called function is a declaration, skip inlining
+        if (NestedCallee && !NestedCallee->isDeclaration()) {
+          return false;
+        }
+      }
+    }
+  }
+
   // Check if the function has multiple return instruction.
   SmallVector<ReturnInst *, 4> Returns;
   getReturns(Callee, Returns);
