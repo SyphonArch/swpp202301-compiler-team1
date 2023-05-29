@@ -30,13 +30,28 @@ struct StoreGroup {
 bool isSafeToMoveDownFromBack(StoreInst *SI, BasicBlock::reverse_iterator start,
                               BasicBlock::reverse_iterator end, AAResults &AA) {
   MemoryLocation StoreLoc = MemoryLocation::get(SI);
-  for (auto I = ++end; I != start; I++) {
+  for (auto I = end; I != start; I++) {
     if (I->mayReadFromMemory()) {
-      MemoryLocation Loc = MemoryLocation::get(&*I);
+
+      Optional<MemoryLocation> LocOpt = MemoryLocation::getOrNone(&*I);
+      if (!LocOpt.hasValue()) {
+        // Possibly a call instruction: Might be unsafe.
+        if (auto *CI = dyn_cast<CallInst>(&*I)) {
+          if (!CI->getCalledFunction() ||
+              CI->getCalledFunction()->isDeclaration()) {
+            // The called function is either null (calling intrinsic) or it
+            // doesn't have a definition in the current module. Skip alias
+            // analysis for this instruction.
+            continue;
+          }
+        }
+
+        return false;
+      }
 
       // If the memory locations may alias, it's not safe to move the store
       // instruction down
-      outs() << AA.alias(StoreLoc, Loc) << "\n";
+      MemoryLocation Loc = LocOpt.getValue();
       if (AA.alias(StoreLoc, Loc) != AliasResult::Kind::NoAlias) {
         return false;
       }
@@ -78,19 +93,20 @@ struct StoreGroups {
   }
 
   // Function to gather all StoreGroups in the Module
-  void gatherGroups(Module &M, FunctionAnalysisManager &FAM) {
+  void gatherGroups(Module &M,
+                    function_ref<AAResults &(Function &)> GetAAResults) {
     for (auto &F : M) {
-      if (F.getName() != "oracle") {
-        gatherGroups(F, FAM);
+      if (F.getName() != "oracle" && !F.isDeclaration()) {
+        // Get an alias analysis instance
+        AAResults &AA = GetAAResults(F);
+        // Gather all StoreGroups in the Function
+        gatherGroups(F, AA);
       }
     }
   }
 
   // Function to gather all StoreGroups in a Function
-  void gatherGroups(Function &F, FunctionAnalysisManager &FAM) {
-    // Get an alias analysis instance
-    AAResults &AA = FAM.getResult<AAManager>(F);
-
+  void gatherGroups(Function &F, AAResults &AA) {
     for (BasicBlock &BB : F) {
       StoreGroup currentGroup(&BB);
 
@@ -201,9 +217,12 @@ void outline(StoreGroup &group) {
 
 PreservedAnalyses OraclePass::run(Module &M, ModuleAnalysisManager &MAM) {
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetAAResults = [&](Function &F) -> AAResults & {
+    return FAM.getResult<AAManager>(F);
+  };
 
   StoreGroups storeGroups;
-  storeGroups.gatherGroups(M, FAM);
+  storeGroups.gatherGroups(M, GetAAResults);
 
   // Debug print
   storeGroups.printGroups();
