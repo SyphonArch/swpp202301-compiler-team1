@@ -50,8 +50,29 @@ struct StoreGroups {
 
   // Helper function to handle the stores in a temporary storage.
   void processAndSaveStoreGroup(StoreGroup &currentGroup) {
-    if (currentGroup.Stores.size() > 1 && currentGroup.Stores.size() <= 8) {
+    const size_t MaxSize = 8;
+    size_t groupSize = currentGroup.Stores.size();
+
+    // If group size is within the bounds, simply add it to the Groups
+    if (groupSize > 1 && groupSize <= MaxSize) {
       Groups.push_back(currentGroup);
+    } else if (groupSize > MaxSize) {
+      // Split larger groups into chunks of MaxSize
+      for (size_t i = 0; i < groupSize; i += MaxSize) {
+        size_t end = std::min(i + MaxSize, groupSize);
+
+        // Create a new vector for the chunk
+        std::vector<StoreInst *> chunkStores;
+        for (size_t j = i; j < end; ++j) {
+          chunkStores.push_back(currentGroup.Stores[j]);
+        }
+
+        // Create a new StoreGroup for the chunk
+        StoreGroup chunkGroup(currentGroup.ParentBlock, chunkStores);
+
+        // Add the chunk to the Groups
+        Groups.push_back(chunkGroup);
+      }
     }
     currentGroup.Stores.clear();
   }
