@@ -13,6 +13,7 @@
 #include "./opt/lcssa_pass.h"
 #include "./opt/use_async_load.h"
 #include "./opt/loop_unrolling.h"
+#include "./opt/heap_to_stack.h"
 
 using namespace std::string_literals;
 
@@ -40,6 +41,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     FPM.addPass(bias_to_false_branch::BiasToFalseBranch());
     FPM.addPass(add_to_sum::AddToSum());
     FPM.addPass(arithmetic_pass::ArithmeticPass());
+    FPM.addPass(heap_to_stack::HeapToStack());
     FPM.addPass(use_async_load::UseAsyncLoad());
 
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
