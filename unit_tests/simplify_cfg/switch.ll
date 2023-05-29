@@ -11,12 +11,12 @@ define void @test1(i32 %N) nounwind uwtable {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    switch i32 [[N:%.*]], label [[IF_ELSE8:%.*]] [
 ; CHECK-NEXT:    i32 2, label [[IF_THEN:%.*]]
-; CHECK-NEXT:    i32 4, label [[IF_THEN7:%.*]]
+; CHECK-NEXT:    i32 4, label [[IF_THEN4:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       if.then:
 ; CHECK-NEXT:    call void @func2(i32 [[N]]) #[[ATTR1:[0-9]+]]
 ; CHECK-NEXT:    br label [[EXIT:%.*]]
-; CHECK:       if.then7:
+; CHECK:       if.then4:
 ; CHECK-NEXT:    call void @func4(i32 [[N]]) #[[ATTR1]]
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       if.else8:
