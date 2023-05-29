@@ -90,4 +90,4 @@ extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
                 });
           }};
 }
-} // namespace sc::opt::gvn_pass
+} // namespace sc::opt::heap_to_stack
