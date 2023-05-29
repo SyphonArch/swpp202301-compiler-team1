@@ -108,6 +108,7 @@ add_opt_pass(UseAsyncLoad use_async_load.cpp)
 add_opt_pass(FunctionInlining function_inlining.cpp)
 add_opt_pass(LoopUnrolling loop_unrolling.cpp)
 add_opt_pass(RegisterPressurePrinterPass register_pressure_analysis.cpp)
+add_opt_pass(RegisterPressureReduction register_pressure_reduction.cpp)
 
 # /================== DO NOT EDIT BELOW ==================/
 add_library(SCOpt ${SRC_DIR}/lib/opt.cpp)

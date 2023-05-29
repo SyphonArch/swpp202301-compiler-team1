@@ -13,6 +13,7 @@
 #include "./opt/lcssa_pass.h"
 #include "./opt/use_async_load.h"
 #include "./opt/loop_unrolling.h"
+#include "./opt/register_pressure_reduction.h"
 
 using namespace std::string_literals;
 
@@ -41,6 +42,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     FPM.addPass(add_to_sum::AddToSum());
     FPM.addPass(arithmetic_pass::ArithmeticPass());
     FPM.addPass(use_async_load::UseAsyncLoad());
+    FPM.addPass(register_pressure_reduction::RegisterPressureReduction());
 
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
     // Add CGSCC-level opt passes below
