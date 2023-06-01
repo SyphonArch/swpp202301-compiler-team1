@@ -38,37 +38,36 @@ PreservedAnalyses GEPEliminatePass::run(Function &F,
 
   std::set<llvm::GetElementPtrInst *> trashBin;
 
-  trashBin.clear();
   for (llvm::BasicBlock &BB : F) {
     for (llvm::Instruction &I : BB) {
-      if (llvm::GetElementPtrInst *GEPI =
+      if (llvm::GetElementPtrInst *gepi =
               llvm::dyn_cast<llvm::GetElementPtrInst>(&I)) {
 
-        llvm::Value *ptrOp = GEPI->getPointerOperand();
+        llvm::Value *ptrOp = gepi->getPointerOperand();
 
         // if the number of index operands is bigger than 1, we cannot optimize
-        unsigned int numIndices = GEPI->getNumIndices();
+        unsigned int numIndices = gepi->getNumIndices();
         if (numIndices > 1)
           continue;
 
-        llvm::Type *curr = ptrOp->getType();
-        curr = curr->getPointerElementType();
+        llvm::Type *ptrElemType = ptrOp->getType()->getPointerElementType();
 
         // a vector that will keep changed instructions
         std::vector<llvm::Instruction *> v;
 
-        auto opIt = GEPI->getOperand(1);
-        llvm::Value *op = opIt;
+        // op is the index operand of Getelementptr instruction
+        auto opIt = gepi->getOperand(1);
+        llvm::Value *IdxOp = opIt;
 
         // change ck to 1 if we cannot optimize
-        int ck = 0;
+        bool cannotOptimize = false;
 
         // get the size of the pointer operand
         uint64_t size;
-        if (llvm::isa<llvm::PointerType>(curr)) {
+        if (llvm::isa<llvm::PointerType>(ptrElemType)) {
           size = 8UL;
-        } else if (llvm::isa<llvm::IntegerType>(curr)) {
-          switch (curr->getIntegerBitWidth()) {
+        } else if (llvm::isa<llvm::IntegerType>(ptrElemType)) {
+          switch (ptrElemType->getIntegerBitWidth()) {
           case 1:
           case 8:
             size = 1UL;
@@ -83,10 +82,10 @@ PreservedAnalyses GEPEliminatePass::run(Function &F,
             size = 8UL;
             break;
           default:
-            ck = 1;
+            cannotOptimize = true;
             break;
           }
-          if (ck == 1)
+          if (cannotOptimize)
             continue;
         } else {
           // if the type that we want to load is not pointer nor integer, we
@@ -99,14 +98,23 @@ PreservedAnalyses GEPEliminatePass::run(Function &F,
         // we first change getelement instruction using add, but later
         // arithmetic pass will change add into incr
 
-        if (op->getType() ==
+        // for our benchmark programs, idx value only has type Int64
+        // but in reality, there may be wrong inputs, so checking is needed to
+        // make sure the idx value is Int64 type
+
+        if (IdxOp->getType() ==
             llvm::ConstantInt::get(Int64Ty, size, true)->getType()) {
           if (llvm::ConstantInt *constInt =
-                  llvm::dyn_cast<llvm::ConstantInt>(op)) {
+                  llvm::dyn_cast<llvm::ConstantInt>(IdxOp)) {
+
+            // if const value is not 0 to 4 -> cannot optimize
+            uint64_t const_val = constInt->getZExtValue();
+            if (const_val >= 4 || const_val < 0)
+              continue;
 
             // make a ptrtoint instruction
             llvm::Instruction *pti = llvm::CastInst::CreateBitOrPointerCast(
-                ptrOp, Int64Ty, "", GEPI);
+                ptrOp, Int64Ty, "", gepi);
 
             v.push_back(pti);
 
@@ -114,6 +122,7 @@ PreservedAnalyses GEPEliminatePass::run(Function &F,
               // do nothing
               // but it is actually optimizing by eliminating useless
               // getelementptr instruction
+
             } else if (constInt->equalsInt(1) || constInt->equalsInt(2) ||
                        constInt->equalsInt(3)) {
 
@@ -126,39 +135,34 @@ PreservedAnalyses GEPEliminatePass::run(Function &F,
               // because it will div and mul by 1
               if (size != 1) {
                 llvm::Instruction *div = llvm::BinaryOperator::CreateUDiv(
-                    v.back(), llvm::ConstantInt::get(Int64Ty, size, true), "",
-                    GEPI);
+                    v.back(), llvm::ConstantInt::get(Int64Ty, size, false), "",
+                    gepi);
                 llvm::Instruction *add = llvm::BinaryOperator::CreateAdd(
-                    div, ConstantInt::get(div->getType(), const_val), "", GEPI);
+                    div, ConstantInt::get(div->getType(), const_val), "", gepi);
                 llvm::Instruction *mul = llvm::BinaryOperator::CreateMul(
-                    add, llvm::ConstantInt::get(Int64Ty, size, true), "", GEPI);
+                    add, llvm::ConstantInt::get(Int64Ty, size, false), "",
+                    gepi);
                 v.push_back(mul);
               } else {
                 llvm::Instruction *add = llvm::BinaryOperator::CreateAdd(
                     v.back(), ConstantInt::get(v.back()->getType(), const_val),
-                    "", GEPI);
+                    "", gepi);
                 v.push_back(add);
               }
-            } else {
-              ck = 1;
             }
-          } else {
-            ck = 1;
-          }
-        } else {
-          ck = 1;
-        }
-
-        if (ck == 1)
+          } else
+            continue;
+        } else
           continue;
 
         // make a inttoptr instruction
         llvm::Instruction *itp = llvm::CastInst::CreateBitOrPointerCast(
-            v.back(), I.getType(), "", GEPI);
+            v.back(), I.getType(), "", gepi);
 
-        //we dont erase the origial instruction in the first loop. put it in a trashcan and in a later loop, we erese it
-        GEPI->replaceAllUsesWith(itp);
-        trashBin.insert(GEPI);
+        // we dont erase the origial instruction in the first loop. put it in a
+        // trashcan and in a later loop, we erese it
+        gepi->replaceAllUsesWith(itp);
+        trashBin.insert(gepi);
       }
     }
   }

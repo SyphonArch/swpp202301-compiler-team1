@@ -22,7 +22,6 @@
 ; CHECK-NEXT:   %14 = add i64 %13, 3
 ; CHECK-NEXT:   %15 = mul i64 %14, 8
 ; CHECK-NEXT:   %16 = inttoptr i64 %15 to i64*
-; CHECK-NEXT:   %17 = ptrtoint i64* %a to i64
 ; CHECK-NEXT:   %elem5 = getelementptr inbounds i64, i64* %a, i64 4
 ; CHECK-NEXT:   %elem6 = getelementptr inbounds i64, i64* %a, i64 %ss
 ; CHECK-NEXT:   %val1 = load i64, i64* %1, align 4
