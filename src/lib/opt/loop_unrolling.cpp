@@ -83,7 +83,7 @@ PreservedAnalyses LoopUnrolling::run(Function &F,
   AssumptionCache &AC = FAM.getResult<AssumptionAnalysis>(F);
   TargetTransformInfo &TTI = FAM.getResult<TargetIRAnalysis>(F);
 
-  for (Loop *L : LI) {
+  for (Loop *L : LI.getLoopsInPreorder()) {
     if (L->isInnermost() && L->isLCSSAForm(DT)) {
       // Set loop unrolling options
       // Count, Force, Runtime, AllowExpensiveTripCount, UnrollRemainder,
