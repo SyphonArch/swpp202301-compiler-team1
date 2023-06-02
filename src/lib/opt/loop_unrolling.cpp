@@ -12,6 +12,7 @@
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
 
@@ -54,12 +55,24 @@ PreservedAnalyses LoopUnrolling::run(Function &F,
     if (L->isInnermost() && L->isLCSSAForm(DT)) {
       // Set loop unrolling options
       // Count, Force, Runtime, AllowExpensiveTripCount, UnrollRemainder,
-      // ForgetAllSCEV All options are set to true to force maximal unrolling
+      // ForgetAllSCEV
+      // All options are set to true to force maximal unrolling
       UnrollLoopOptions ULO{8, true, true, true, true, true};
 
       // Perform loop unrolling using UnrollLoop function
       LoopUnrollResult Result =
           UnrollLoop(L, ULO, &LI, &SE, &DT, &AC, &TTI, nullptr, true);
+
+      // Merge blocks in the loop, if possible.
+      // Continues to merge while merges happen.
+      bool is_merged;
+      do {
+        vector<BasicBlock*> loop_blocks = L->getBlocksVector();
+        is_merged = false;
+        for (BasicBlock *BB : loop_blocks) {
+          is_merged |= MergeBlockIntoPredecessor(BB);
+        }
+      } while (is_merged);
     }
   }
   return PreservedAnalyses::none();
