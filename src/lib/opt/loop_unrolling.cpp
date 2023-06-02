@@ -20,6 +20,7 @@ using namespace llvm;
 
 namespace sc::opt::loop_unrolling {
 
+// Rotates loops
 void rotate_loop(Function &F, FunctionAnalysisManager &FAM) {
   LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
   if (LI.empty())
@@ -48,6 +49,7 @@ void rotate_loop(Function &F, FunctionAnalysisManager &FAM) {
   }
 }
 
+// Canonicalizes loops
 void simplify_loop(Function &F, FunctionAnalysisManager &FAM) {
   LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
   if (LI.empty())
@@ -73,6 +75,7 @@ void simplify_loop(Function &F, FunctionAnalysisManager &FAM) {
 PreservedAnalyses LoopUnrolling::run(Function &F,
                                      FunctionAnalysisManager &FAM) {
 
+  // Loops must be in rotated canonical form for unrolling to happen
   rotate_loop(F, FAM);
   simplify_loop(F, FAM);
 
