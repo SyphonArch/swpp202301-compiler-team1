@@ -57,55 +57,20 @@ define i32 @sumLoop(i32 %N) {
 ; CHECK-NEXT:   br i1 %lcmp.mod, label %latch.epil.preheader, label %loop.exit_crit_edge
 ; CHECK: latch.epil.preheader:                             ; preds = %loop.exit_crit_edge.unr-lcssa
 ; CHECK-NEXT:   br label %latch.epil
-; CHECK: latch.epil:                                       ; preds = %latch.epil.preheader
+; CHECK: latch.epil:                                       ; preds = %merge.epil, %latch.epil.preheader
+; CHECK-NEXT:   %i3.epil = phi i32 [ %i3.unr, %latch.epil.preheader ], [ %next_i.epil, %merge.epil ]
+; CHECK-NEXT:   %sum2.epil = phi i32 [ %sum2.unr, %latch.epil.preheader ], [ %next_sum.epil, %merge.epil ]
+; CHECK-NEXT:   %epil.iter = phi i32 [ 0, %latch.epil.preheader ], [ %epil.iter.next, %merge.epil ]
 ; CHECK-NEXT:   br label %merge.epil
 ; CHECK: merge.epil:                                       ; preds = %latch.epil
-; CHECK-NEXT:   %next_sum.epil = add i32 %sum2.unr, %i3.unr
-; CHECK-NEXT:   %next_i.epil = add i32 %i3.unr, 1
-; CHECK-NEXT:   %epil.iter.cmp = icmp ne i32 1, %xtraiter
-; CHECK-NEXT:   br i1 %epil.iter.cmp, label %latch.epil.1, label %loop.exit_crit_edge.epilog-lcssa
-; CHECK: latch.epil.1:                                     ; preds = %merge.epil
-; CHECK-NEXT:   br label %merge.epil.1
-; CHECK: merge.epil.1:                                     ; preds = %latch.epil.1
-; CHECK-NEXT:   %next_sum.epil.1 = add i32 %next_sum.epil, %next_i.epil
-; CHECK-NEXT:   %next_i.epil.1 = add i32 %next_i.epil, 1
-; CHECK-NEXT:   %epil.iter.cmp.1 = icmp ne i32 2, %xtraiter
-; CHECK-NEXT:   br i1 %epil.iter.cmp.1, label %latch.epil.2, label %loop.exit_crit_edge.epilog-lcssa
-; CHECK: latch.epil.2:                                     ; preds = %merge.epil.1
-; CHECK-NEXT:   br label %merge.epil.2
-; CHECK: merge.epil.2:                                     ; preds = %latch.epil.2
-; CHECK-NEXT:   %next_sum.epil.2 = add i32 %next_sum.epil.1, %next_i.epil.1
-; CHECK-NEXT:   %next_i.epil.2 = add i32 %next_i.epil.1, 1
-; CHECK-NEXT:   %epil.iter.cmp.2 = icmp ne i32 3, %xtraiter
-; CHECK-NEXT:   br i1 %epil.iter.cmp.2, label %latch.epil.3, label %loop.exit_crit_edge.epilog-lcssa
-; CHECK: latch.epil.3:                                     ; preds = %merge.epil.2
-; CHECK-NEXT:   br label %merge.epil.3
-; CHECK: merge.epil.3:                                     ; preds = %latch.epil.3
-; CHECK-NEXT:   %next_sum.epil.3 = add i32 %next_sum.epil.2, %next_i.epil.2
-; CHECK-NEXT:   %next_i.epil.3 = add i32 %next_i.epil.2, 1
-; CHECK-NEXT:   %epil.iter.cmp.3 = icmp ne i32 4, %xtraiter
-; CHECK-NEXT:   br i1 %epil.iter.cmp.3, label %latch.epil.4, label %loop.exit_crit_edge.epilog-lcssa
-; CHECK: latch.epil.4:                                     ; preds = %merge.epil.3
-; CHECK-NEXT:   br label %merge.epil.4
-; CHECK: merge.epil.4:                                     ; preds = %latch.epil.4
-; CHECK-NEXT:   %next_sum.epil.4 = add i32 %next_sum.epil.3, %next_i.epil.3
-; CHECK-NEXT:   %next_i.epil.4 = add i32 %next_i.epil.3, 1
-; CHECK-NEXT:   %epil.iter.cmp.4 = icmp ne i32 5, %xtraiter
-; CHECK-NEXT:   br i1 %epil.iter.cmp.4, label %latch.epil.5, label %loop.exit_crit_edge.epilog-lcssa
-; CHECK: latch.epil.5:                                     ; preds = %merge.epil.4
-; CHECK-NEXT:   br label %merge.epil.5
-; CHECK: merge.epil.5:                                     ; preds = %latch.epil.5
-; CHECK-NEXT:   %next_sum.epil.5 = add i32 %next_sum.epil.4, %next_i.epil.4
-; CHECK-NEXT:   %next_i.epil.5 = add i32 %next_i.epil.4, 1
-; CHECK-NEXT:   %epil.iter.cmp.5 = icmp ne i32 6, %xtraiter
-; CHECK-NEXT:   br i1 %epil.iter.cmp.5, label %latch.epil.6, label %loop.exit_crit_edge.epilog-lcssa
-; CHECK: latch.epil.6:                                     ; preds = %merge.epil.5
-; CHECK-NEXT:   br label %merge.epil.6
-; CHECK: merge.epil.6:                                     ; preds = %latch.epil.6
-; CHECK-NEXT:   %next_sum.epil.6 = add i32 %next_sum.epil.5, %next_i.epil.5
-; CHECK-NEXT:   br label %loop.exit_crit_edge.epilog-lcssa
-; CHECK: loop.exit_crit_edge.epilog-lcssa:                 ; preds = %merge.epil.6, %merge.epil.5, %merge.epil.4, %merge.epil.3, %merge.epil.2, %merge.epil.1, %merge.epil
-; CHECK-NEXT:   %split.ph4 = phi i32 [ %next_sum.epil, %merge.epil ], [ %next_sum.epil.1, %merge.epil.1 ], [ %next_sum.epil.2, %merge.epil.2 ], [ %next_sum.epil.3, %merge.epil.3 ], [ %next_sum.epil.4, %merge.epil.4 ], [ %next_sum.epil.5, %merge.epil.5 ], [ %next_sum.epil.6, %merge.epil.6 ]
+; CHECK-NEXT:   %next_sum.epil = add i32 %sum2.epil, %i3.epil
+; CHECK-NEXT:   %next_i.epil = add i32 %i3.epil, 1
+; CHECK-NEXT:   %exit_cond1.epil = icmp sgt i32 %N, %next_i.epil
+; CHECK-NEXT:   %epil.iter.next = add i32 %epil.iter, 1
+; CHECK-NEXT:   %epil.iter.cmp = icmp ne i32 %epil.iter.next, %xtraiter
+; CHECK-NEXT:   br i1 %epil.iter.cmp, label %latch.epil, label %loop.exit_crit_edge.epilog-lcssa, !llvm.loop !0
+; CHECK: loop.exit_crit_edge.epilog-lcssa:                 ; preds = %merge.epil
+; CHECK-NEXT:   %split.ph4 = phi i32 [ %next_sum.epil, %merge.epil ]
 ; CHECK-NEXT:   br label %loop.exit_crit_edge
 ; CHECK: loop.exit_crit_edge:                              ; preds = %loop.exit_crit_edge.unr-lcssa, %loop.exit_crit_edge.epilog-lcssa
 ; CHECK-NEXT:   %split = phi i32 [ %split.ph, %loop.exit_crit_edge.unr-lcssa ], [ %split.ph4, %loop.exit_crit_edge.epilog-lcssa ]

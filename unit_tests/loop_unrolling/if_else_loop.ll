@@ -151,115 +151,31 @@ define i32 @exampleLoop(i32 %N) {
 ; CHECK-NEXT:   br i1 %lcmp.mod, label %loop.epil.preheader, label %exit.loopexit
 ; CHECK: loop.epil.preheader:                              ; preds = %exit.loopexit.unr-lcssa
 ; CHECK-NEXT:   br label %loop.epil
-; CHECK: loop.epil:                                        ; preds = %loop.epil.preheader
-; CHECK-NEXT:   %is_even.epil = srem i32 %i.unr, 2
+; CHECK: loop.epil:                                        ; preds = %if.end.epil, %loop.epil.preheader
+; CHECK-NEXT:   %i.epil = phi i32 [ %next.epil, %if.end.epil ], [ %i.unr, %loop.epil.preheader ]
+; CHECK-NEXT:   %even_sum.epil = phi i32 [ %even_sum_next_.epil, %if.end.epil ], [ %even_sum.unr, %loop.epil.preheader ]
+; CHECK-NEXT:   %odd_sum.epil = phi i32 [ %odd_sum_next_.epil, %if.end.epil ], [ %odd_sum.unr, %loop.epil.preheader ]
+; CHECK-NEXT:   %epil.iter = phi i32 [ 0, %loop.epil.preheader ], [ %epil.iter.next, %if.end.epil ]
+; CHECK-NEXT:   %is_even.epil = srem i32 %i.epil, 2
 ; CHECK-NEXT:   %is_even_zero.epil = icmp eq i32 %is_even.epil, 0
 ; CHECK-NEXT:   br i1 %is_even_zero.epil, label %if.then.epil, label %if.else.epil
 ; CHECK: if.else.epil:                                     ; preds = %loop.epil
-; CHECK-NEXT:   %odd_sum_next.epil = add i32 %odd_sum.unr, %i.unr
+; CHECK-NEXT:   %odd_sum_next.epil = add i32 %odd_sum.epil, %i.epil
 ; CHECK-NEXT:   br label %if.end.epil
 ; CHECK: if.then.epil:                                     ; preds = %loop.epil
-; CHECK-NEXT:   %even_sum_next.epil = add i32 %even_sum.unr, %i.unr
+; CHECK-NEXT:   %even_sum_next.epil = add i32 %even_sum.epil, %i.epil
 ; CHECK-NEXT:   br label %if.end.epil
 ; CHECK: if.end.epil:                                      ; preds = %if.then.epil, %if.else.epil
-; CHECK-NEXT:   %even_sum_next_.epil = phi i32 [ %even_sum.unr, %if.else.epil ], [ %even_sum_next.epil, %if.then.epil ]
-; CHECK-NEXT:   %odd_sum_next_.epil = phi i32 [ %odd_sum_next.epil, %if.else.epil ], [ %odd_sum.unr, %if.then.epil ]
-; CHECK-NEXT:   %next.epil = add i32 %i.unr, 1
-; CHECK-NEXT:   %epil.iter.cmp = icmp ne i32 1, %xtraiter
-; CHECK-NEXT:   br i1 %epil.iter.cmp, label %loop.epil.1, label %exit.loopexit.epilog-lcssa
-; CHECK: loop.epil.1:                                      ; preds = %if.end.epil
-; CHECK-NEXT:   %is_even.epil.1 = srem i32 %next.epil, 2
-; CHECK-NEXT:   %is_even_zero.epil.1 = icmp eq i32 %is_even.epil.1, 0
-; CHECK-NEXT:   br i1 %is_even_zero.epil.1, label %if.then.epil.1, label %if.else.epil.1
-; CHECK: if.else.epil.1:                                   ; preds = %loop.epil.1
-; CHECK-NEXT:   %odd_sum_next.epil.1 = add i32 %odd_sum_next_.epil, %next.epil
-; CHECK-NEXT:   br label %if.end.epil.1
-; CHECK: if.then.epil.1:                                   ; preds = %loop.epil.1
-; CHECK-NEXT:   %even_sum_next.epil.1 = add i32 %even_sum_next_.epil, %next.epil
-; CHECK-NEXT:   br label %if.end.epil.1
-; CHECK: if.end.epil.1:                                    ; preds = %if.then.epil.1, %if.else.epil.1
-; CHECK-NEXT:   %even_sum_next_.epil.1 = phi i32 [ %even_sum_next_.epil, %if.else.epil.1 ], [ %even_sum_next.epil.1, %if.then.epil.1 ]
-; CHECK-NEXT:   %odd_sum_next_.epil.1 = phi i32 [ %odd_sum_next.epil.1, %if.else.epil.1 ], [ %odd_sum_next_.epil, %if.then.epil.1 ]
-; CHECK-NEXT:   %next.epil.1 = add i32 %next.epil, 1
-; CHECK-NEXT:   %epil.iter.cmp.1 = icmp ne i32 2, %xtraiter
-; CHECK-NEXT:   br i1 %epil.iter.cmp.1, label %loop.epil.2, label %exit.loopexit.epilog-lcssa
-; CHECK: loop.epil.2:                                      ; preds = %if.end.epil.1
-; CHECK-NEXT:   %is_even.epil.2 = srem i32 %next.epil.1, 2
-; CHECK-NEXT:   %is_even_zero.epil.2 = icmp eq i32 %is_even.epil.2, 0
-; CHECK-NEXT:   br i1 %is_even_zero.epil.2, label %if.then.epil.2, label %if.else.epil.2
-; CHECK: if.else.epil.2:                                   ; preds = %loop.epil.2
-; CHECK-NEXT:   %odd_sum_next.epil.2 = add i32 %odd_sum_next_.epil.1, %next.epil.1
-; CHECK-NEXT:   br label %if.end.epil.2
-; CHECK: if.then.epil.2:                                   ; preds = %loop.epil.2
-; CHECK-NEXT:   %even_sum_next.epil.2 = add i32 %even_sum_next_.epil.1, %next.epil.1
-; CHECK-NEXT:   br label %if.end.epil.2
-; CHECK: if.end.epil.2:                                    ; preds = %if.then.epil.2, %if.else.epil.2
-; CHECK-NEXT:   %even_sum_next_.epil.2 = phi i32 [ %even_sum_next_.epil.1, %if.else.epil.2 ], [ %even_sum_next.epil.2, %if.then.epil.2 ]
-; CHECK-NEXT:   %odd_sum_next_.epil.2 = phi i32 [ %odd_sum_next.epil.2, %if.else.epil.2 ], [ %odd_sum_next_.epil.1, %if.then.epil.2 ]
-; CHECK-NEXT:   %next.epil.2 = add i32 %next.epil.1, 1
-; CHECK-NEXT:   %epil.iter.cmp.2 = icmp ne i32 3, %xtraiter
-; CHECK-NEXT:   br i1 %epil.iter.cmp.2, label %loop.epil.3, label %exit.loopexit.epilog-lcssa
-; CHECK: loop.epil.3:                                      ; preds = %if.end.epil.2
-; CHECK-NEXT:   %is_even.epil.3 = srem i32 %next.epil.2, 2
-; CHECK-NEXT:   %is_even_zero.epil.3 = icmp eq i32 %is_even.epil.3, 0
-; CHECK-NEXT:   br i1 %is_even_zero.epil.3, label %if.then.epil.3, label %if.else.epil.3
-; CHECK: if.else.epil.3:                                   ; preds = %loop.epil.3
-; CHECK-NEXT:   %odd_sum_next.epil.3 = add i32 %odd_sum_next_.epil.2, %next.epil.2
-; CHECK-NEXT:   br label %if.end.epil.3
-; CHECK: if.then.epil.3:                                   ; preds = %loop.epil.3
-; CHECK-NEXT:   %even_sum_next.epil.3 = add i32 %even_sum_next_.epil.2, %next.epil.2
-; CHECK-NEXT:   br label %if.end.epil.3
-; CHECK: if.end.epil.3:                                    ; preds = %if.then.epil.3, %if.else.epil.3
-; CHECK-NEXT:   %even_sum_next_.epil.3 = phi i32 [ %even_sum_next_.epil.2, %if.else.epil.3 ], [ %even_sum_next.epil.3, %if.then.epil.3 ]
-; CHECK-NEXT:   %odd_sum_next_.epil.3 = phi i32 [ %odd_sum_next.epil.3, %if.else.epil.3 ], [ %odd_sum_next_.epil.2, %if.then.epil.3 ]
-; CHECK-NEXT:   %next.epil.3 = add i32 %next.epil.2, 1
-; CHECK-NEXT:   %epil.iter.cmp.3 = icmp ne i32 4, %xtraiter
-; CHECK-NEXT:   br i1 %epil.iter.cmp.3, label %loop.epil.4, label %exit.loopexit.epilog-lcssa
-; CHECK: loop.epil.4:                                      ; preds = %if.end.epil.3
-; CHECK-NEXT:   %is_even.epil.4 = srem i32 %next.epil.3, 2
-; CHECK-NEXT:   %is_even_zero.epil.4 = icmp eq i32 %is_even.epil.4, 0
-; CHECK-NEXT:   br i1 %is_even_zero.epil.4, label %if.then.epil.4, label %if.else.epil.4
-; CHECK: if.else.epil.4:                                   ; preds = %loop.epil.4
-; CHECK-NEXT:   %odd_sum_next.epil.4 = add i32 %odd_sum_next_.epil.3, %next.epil.3
-; CHECK-NEXT:   br label %if.end.epil.4
-; CHECK: if.then.epil.4:                                   ; preds = %loop.epil.4
-; CHECK-NEXT:   %even_sum_next.epil.4 = add i32 %even_sum_next_.epil.3, %next.epil.3
-; CHECK-NEXT:   br label %if.end.epil.4
-; CHECK: if.end.epil.4:                                    ; preds = %if.then.epil.4, %if.else.epil.4
-; CHECK-NEXT:   %even_sum_next_.epil.4 = phi i32 [ %even_sum_next_.epil.3, %if.else.epil.4 ], [ %even_sum_next.epil.4, %if.then.epil.4 ]
-; CHECK-NEXT:   %odd_sum_next_.epil.4 = phi i32 [ %odd_sum_next.epil.4, %if.else.epil.4 ], [ %odd_sum_next_.epil.3, %if.then.epil.4 ]
-; CHECK-NEXT:   %next.epil.4 = add i32 %next.epil.3, 1
-; CHECK-NEXT:   %epil.iter.cmp.4 = icmp ne i32 5, %xtraiter
-; CHECK-NEXT:   br i1 %epil.iter.cmp.4, label %loop.epil.5, label %exit.loopexit.epilog-lcssa
-; CHECK: loop.epil.5:                                      ; preds = %if.end.epil.4
-; CHECK-NEXT:   %is_even.epil.5 = srem i32 %next.epil.4, 2
-; CHECK-NEXT:   %is_even_zero.epil.5 = icmp eq i32 %is_even.epil.5, 0
-; CHECK-NEXT:   br i1 %is_even_zero.epil.5, label %if.then.epil.5, label %if.else.epil.5
-; CHECK: if.else.epil.5:                                   ; preds = %loop.epil.5
-; CHECK-NEXT:   %odd_sum_next.epil.5 = add i32 %odd_sum_next_.epil.4, %next.epil.4
-; CHECK-NEXT:   br label %if.end.epil.5
-; CHECK: if.then.epil.5:                                   ; preds = %loop.epil.5
-; CHECK-NEXT:   %even_sum_next.epil.5 = add i32 %even_sum_next_.epil.4, %next.epil.4
-; CHECK-NEXT:   br label %if.end.epil.5
-; CHECK: if.end.epil.5:                                    ; preds = %if.then.epil.5, %if.else.epil.5
-; CHECK-NEXT:   %even_sum_next_.epil.5 = phi i32 [ %even_sum_next_.epil.4, %if.else.epil.5 ], [ %even_sum_next.epil.5, %if.then.epil.5 ]
-; CHECK-NEXT:   %odd_sum_next_.epil.5 = phi i32 [ %odd_sum_next.epil.5, %if.else.epil.5 ], [ %odd_sum_next_.epil.4, %if.then.epil.5 ]
-; CHECK-NEXT:   %next.epil.5 = add i32 %next.epil.4, 1
-; CHECK-NEXT:   %epil.iter.cmp.5 = icmp ne i32 6, %xtraiter
-; CHECK-NEXT:   br i1 %epil.iter.cmp.5, label %loop.epil.6, label %exit.loopexit.epilog-lcssa
-; CHECK: loop.epil.6:                                      ; preds = %if.end.epil.5
-; CHECK-NEXT:   %is_even.epil.6 = srem i32 %next.epil.5, 2
-; CHECK-NEXT:   %is_even_zero.epil.6 = icmp eq i32 %is_even.epil.6, 0
-; CHECK-NEXT:   br i1 %is_even_zero.epil.6, label %if.then.epil.6, label %if.else.epil.6
-; CHECK: if.else.epil.6:                                   ; preds = %loop.epil.6
-; CHECK-NEXT:   br label %if.end.epil.6
-; CHECK: if.then.epil.6:                                   ; preds = %loop.epil.6
-; CHECK-NEXT:   br label %if.end.epil.6
-; CHECK: if.end.epil.6:                                    ; preds = %if.then.epil.6, %if.else.epil.6
-; CHECK-NEXT:   br label %exit.loopexit.epilog-lcssa
-; CHECK: exit.loopexit.epilog-lcssa:                       ; preds = %if.end.epil.6, %if.end.epil.5, %if.end.epil.4, %if.end.epil.3, %if.end.epil.2, %if.end.epil.1, %if.end.epil
-; CHECK-NEXT:   %even_sum_.ph.ph1 = phi i32 [ %even_sum.unr, %if.end.epil ], [ %even_sum_next_.epil, %if.end.epil.1 ], [ %even_sum_next_.epil.1, %if.end.epil.2 ], [ %even_sum_next_.epil.2, %if.end.epil.3 ], [ %even_sum_next_.epil.3, %if.end.epil.4 ], [ %even_sum_next_.epil.4, %if.end.epil.5 ], [ %even_sum_next_.epil.5, %if.end.epil.6 ]
-; CHECK-NEXT:   %odd_sum_.ph.ph2 = phi i32 [ %odd_sum.unr, %if.end.epil ], [ %odd_sum_next_.epil, %if.end.epil.1 ], [ %odd_sum_next_.epil.1, %if.end.epil.2 ], [ %odd_sum_next_.epil.2, %if.end.epil.3 ], [ %odd_sum_next_.epil.3, %if.end.epil.4 ], [ %odd_sum_next_.epil.4, %if.end.epil.5 ], [ %odd_sum_next_.epil.5, %if.end.epil.6 ]
+; CHECK-NEXT:   %even_sum_next_.epil = phi i32 [ %even_sum.epil, %if.else.epil ], [ %even_sum_next.epil, %if.then.epil ]
+; CHECK-NEXT:   %odd_sum_next_.epil = phi i32 [ %odd_sum_next.epil, %if.else.epil ], [ %odd_sum.epil, %if.then.epil ]
+; CHECK-NEXT:   %next.epil = add i32 %i.epil, 1
+; CHECK-NEXT:   %exit_cond.epil = icmp slt i32 %next.epil, %N
+; CHECK-NEXT:   %epil.iter.next = add i32 %epil.iter, 1
+; CHECK-NEXT:   %epil.iter.cmp = icmp ne i32 %epil.iter.next, %xtraiter
+; CHECK-NEXT:   br i1 %epil.iter.cmp, label %loop.epil, label %exit.loopexit.epilog-lcssa, !llvm.loop !0
+; CHECK: exit.loopexit.epilog-lcssa:                       ; preds = %if.end.epil
+; CHECK-NEXT:   %even_sum_.ph.ph1 = phi i32 [ %even_sum.epil, %if.end.epil ]
+; CHECK-NEXT:   %odd_sum_.ph.ph2 = phi i32 [ %odd_sum.epil, %if.end.epil ]
 ; CHECK-NEXT:   br label %exit.loopexit
 ; CHECK: exit.loopexit:                                    ; preds = %exit.loopexit.unr-lcssa, %exit.loopexit.epilog-lcssa
 ; CHECK-NEXT:   %even_sum_.ph = phi i32 [ %even_sum_.ph.ph, %exit.loopexit.unr-lcssa ], [ %even_sum_.ph.ph1, %exit.loopexit.epilog-lcssa ]
