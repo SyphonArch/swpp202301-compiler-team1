@@ -16,6 +16,8 @@
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 
+#define MAX_LOOP_SIZE 100
+
 using namespace llvm;
 
 namespace sc::opt::loop_unrolling {
@@ -88,6 +90,14 @@ PreservedAnalyses LoopUnrolling::run(Function &F,
 
   for (Loop *L : LI.getLoopsInPreorder()) {
     if (L->isInnermost() && L->isLCSSAForm(DT)) {
+      // Skip loop if loop contains too many instructions
+      size_t loop_size = 0;
+      for (auto loop_block: L->blocks()) {
+        loop_size += loop_block->size();
+      }
+      if (loop_size > MAX_LOOP_SIZE) {
+        continue;
+      }
       // Set loop unrolling options
       // Count, Force, Runtime, AllowExpensiveTripCount, UnrollRemainder,
       // ForgetAllSCEV
