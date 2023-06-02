@@ -1,5 +1,6 @@
 #include "loop_unrolling.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemorySSA.h"
@@ -10,9 +11,9 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
-#include "llvm/Transforms/Utils/UnrollLoop.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Analysis/DomTreeUpdater.h"
+#include "llvm/Transforms/Utils/LoopSimplify.h"
+#include "llvm/Transforms/Utils/UnrollLoop.h"
 
 using namespace llvm;
 
