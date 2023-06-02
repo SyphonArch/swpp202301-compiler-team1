@@ -1,5 +1,5 @@
 ; Test on a loop with an if-else structure
-; Unrolling does not happen for this loop
+; Runtime unrolling will happen on this loop
 
 define i32 @exampleLoop(i32 %N) {
 ; CHECK-LABEL: @exampleLoop(i32 %N)
