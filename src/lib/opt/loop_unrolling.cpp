@@ -12,6 +12,7 @@
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 
 using namespace llvm;
 
@@ -47,6 +48,7 @@ PreservedAnalyses LoopUnrolling::run(Function &F,
   LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
   ScalarEvolution &SE = FAM.getResult<ScalarEvolutionAnalysis>(F);
   DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   AssumptionCache &AC = FAM.getResult<AssumptionAnalysis>(F);
   TargetTransformInfo &TTI = FAM.getResult<TargetIRAnalysis>(F);
 
@@ -69,7 +71,7 @@ PreservedAnalyses LoopUnrolling::run(Function &F,
         vector<BasicBlock*> loop_blocks = L->getBlocksVector();
         is_merged = false;
         for (BasicBlock *BB : loop_blocks) {
-          is_merged |= MergeBlockIntoPredecessor(BB);
+          is_merged |= MergeBlockIntoPredecessor(BB, &DTU, &LI);
         }
       } while (is_merged);
     }
