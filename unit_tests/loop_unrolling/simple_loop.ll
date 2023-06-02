@@ -3,12 +3,10 @@
 define i32 @sumLoop(i32 %N) {
 ; CHECK-LABEL: @sumLoop(i32 %N)
 ; CHECK: entry:
-; CHECK-NEXT:   br label %loop.preheader
-; CHECK: loop.preheader:                                   ; preds = %entry
 ; CHECK-NEXT:   br label %loop
-; CHECK: loop:                                             ; preds = %latch.7, %loop.preheader
-; CHECK-NEXT:   %sum = phi i32 [ 0, %loop.preheader ], [ %next_sum.7, %latch.7 ]
-; CHECK-NEXT:   %i = phi i32 [ 1, %loop.preheader ], [ %next_i.7, %latch.7 ]
+; CHECK: loop:                                             ; preds = %latch.7, %entry
+; CHECK-NEXT:   %sum = phi i32 [ 0, %entry ], [ %next_sum.7, %latch.7 ]
+; CHECK-NEXT:   %i = phi i32 [ 1, %entry ], [ %next_i.7, %latch.7 ]
 ; CHECK-NEXT:   %exit_cond1 = icmp sgt i32 %N, %i
 ; CHECK-NEXT:   br i1 %exit_cond1, label %latch, label %exit
 ; CHECK: latch:                                            ; preds = %loop

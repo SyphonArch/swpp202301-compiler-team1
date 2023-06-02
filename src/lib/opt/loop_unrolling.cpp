@@ -17,22 +17,6 @@ using namespace llvm;
 
 namespace sc::opt::loop_unrolling {
 
-void insert_preheader(Function &F, FunctionAnalysisManager &FAM) {
-  LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
-  if (LI.empty())
-    return;
-
-  DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-  MemorySSA &MSSA = FAM.getResult<MemorySSAAnalysis>(F).getMSSA();
-  MemorySSAUpdater MSSAU = MemorySSAUpdater(&MSSA);
-
-  for (Loop *L : LI.getLoopsInPreorder()) {
-    InsertPreheaderForLoop(L, &DT, &LI, &MSSAU, true);
-  }
-
-  FAM.invalidate(F, PreservedAnalyses::none());
-}
-
 void simplify_loop(Function &F, FunctionAnalysisManager &FAM) {
   LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
   if (LI.empty())
@@ -58,7 +42,6 @@ void simplify_loop(Function &F, FunctionAnalysisManager &FAM) {
 PreservedAnalyses LoopUnrolling::run(Function &F,
                                      FunctionAnalysisManager &FAM) {
 
-  insert_preheader(F, FAM);
   simplify_loop(F, FAM);
 
   LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
