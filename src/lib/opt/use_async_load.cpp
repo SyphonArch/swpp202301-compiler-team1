@@ -50,17 +50,19 @@ int getMinCost(Instruction *I) {
       return 2 + argNum;
     }
   } 
-  //newly added!
   
-  else if(auto *getele = dyn_cast<GetElementPtrInst>(I)) {
+  else if(dyn_cast<GetElementPtrInst>(I)) {
     //getelementptr operation spends 6 cost
     return 6;
-  } else if(auto *getele = dyn_cast<StoreInst>(I)) {
+  } else if(dyn_cast<StoreInst>(I)) {
     return 34;
-  } else if(auto *getele = dyn_cast<LoadInst>(I)) {
-    return 12;
-  }
-  else {
+  } else if(dyn_cast<LoadInst>(I)) {
+    // if the value is not aload, just consider it as a the least cost possible
+    // in our implementation, it finally checks whether if the load instruction should be aload or not
+    // so no need to worry about cost incresing after changing to aload
+    // the only benefit for 'not considering load cost as 1' is it might be useful for preventing register spilling, but I think reducing load cost is more imporatant
+    return 1;
+  } else {
     return 1;
   }
 }
@@ -111,9 +113,9 @@ bool isTwoWayBranchInstruction(llvm::Instruction *inst) {
 }
 
 //check all operand in getelementptr instruction and see if and of its operand is the prior instruction
-bool isOperandInList(const GetElementPtrInst *getelelist, const Instruction *priorgeteleInst) {
-  for (const Use &use : getelelist->operands()) {
-    if (use.get() == priorgeteleInst) {
+bool isInstUsedInGEP(const GetElementPtrInst *geteleInst, const Instruction *priorGEPInst) {
+  for (const Use &use : geteleInst->operands()) {
+    if (use.get() == priorGEPInst) {
       return true;
     }
   }
@@ -179,26 +181,25 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
 
       // in this part, we check if the instruction is getelement ptr, and move it upwards
       // for safety, at first we dont move it over phi or def of it
-      if (dyn_cast<GetElementPtrInst>(&I)) {
-        GetElementPtrInst *getelelist = dyn_cast<GetElementPtrInst>(&I);
-        Instruction *priorgeteleInst = getelelist->getPrevNode();
+      if (auto *getElemPtrInst = dyn_cast<GetElementPtrInst>(&I)) {
+        Instruction *priorGEPInst = getElemPtrInst->getPrevNode();
 
         //make a new variable
         //this will count tue number of costs that will be reduced by changing positions
         //in here, it is the getelementptr instruction that are moving, not load, but almost the same!
         //if the reduced cost is bigger than 24, which is the max coost that can be reduced, do not move further!
         //this is used to somewhat prevent register spilling
-        int cost_may_reduce_getele = 0;
-        while (priorgeteleInst) {
-          if (dyn_cast<PHINode>(priorgeteleInst) ||
-          dyn_cast<GetElementPtrInst>(priorgeteleInst))
+        int costMayReduceGEP = 0;
+        while (priorGEPInst) {
+          if (dyn_cast<PHINode>(priorGEPInst) ||
+          dyn_cast<GetElementPtrInst>(priorGEPInst))
             break;
-          if (isOperandInList(getelelist, priorgeteleInst))
+          if (isInstUsedInGEP(getElemPtrInst, priorGEPInst))
             break;
-          cost_may_reduce_getele += getMinCost(priorgeteleInst);
-          getelelist->moveBefore(priorgeteleInst);
-          priorgeteleInst = getelelist->getPrevNode();
-          if(cost_may_reduce_getele >= 24) break;
+          costMayReduceGEP += getMinCost(priorGEPInst);
+          getElemPtrInst->moveBefore(priorGEPInst);
+          priorGEPInst = getElemPtrInst->getPrevNode();
+          if(costMayReduceGEP >= 24) break;
         }
       }
 
@@ -223,22 +224,21 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
       // 3. if cost_may_reduce >= 24 break
       // this will help us prevent register spilling
       
-      int cost_may_reduce_load = 0;
+      int costMayReduceLoad = 0;
 
       while (priorLoadInst) {
         if (dyn_cast<StoreInst>(priorLoadInst) ||
             dyn_cast<LoadInst>(priorLoadInst) ||
             dyn_cast<PHINode>(priorLoadInst) ||
             priorLoadInst->mayReadOrWriteMemory() ||
-            isTwoWayBranchInstruction(priorLoadInst) ||
             dyn_cast<GetElementPtrInst>(priorLoadInst))
           break;
         if (loadPtr == priorLoadInst)
           break;
-        cost_may_reduce_load += getMinCost(priorLoadInst);
+        costMayReduceLoad += getMinCost(priorLoadInst);
         loadInst->moveBefore(priorLoadInst);
         priorLoadInst = loadInst->getPrevNode();
-        if(cost_may_reduce_load >= 24) break;
+        if(costMayReduceLoad >= 24) break;
       }
 
       // Part 2: Move instructions that does not use loadInst up.
