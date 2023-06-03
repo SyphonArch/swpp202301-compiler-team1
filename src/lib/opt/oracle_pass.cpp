@@ -134,19 +134,6 @@ struct StoreGroups {
     }
   }
 
-  void printGroups() const {
-    for (const auto &group : Groups) {
-      LLVM_DEBUG(dbgs() << "Group in Function: "
-                        << group.ParentBlock->getParent()->getName()
-                        << ", BasicBlock: " << group.ParentBlock->getName()
-                        << "\n");
-      for (const auto *SI : group.Stores) {
-        LLVM_DEBUG(dbgs() << *SI << "\n");
-      }
-      LLVM_DEBUG(dbgs() << "\n");
-    }
-  }
-
   Optional<StoreGroup> getMaxSizeGroup() const {
     if (Groups.empty()) {
       return llvm::None;
@@ -226,9 +213,6 @@ PreservedAnalyses OraclePass::run(Module &M, ModuleAnalysisManager &MAM) {
 
   StoreGroups storeGroups;
   storeGroups.gatherGroups(M, GetAAResults);
-
-  // Debug print
-  storeGroups.printGroups();
 
   // Get the StoreGroup with the maximum size
   auto maxGroupOpt = storeGroups.getMaxSizeGroup();
