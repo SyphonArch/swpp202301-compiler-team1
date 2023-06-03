@@ -172,6 +172,8 @@ void outline(StoreGroup &group) {
       ArgNames.push_back("");
   }
 
+  assert(ArgTypes.size() <= 16 && "Oracle should have number of arguments <= 16");
+
   FunctionType *FT = FunctionType::get(Builder.getInt64Ty(), ArgTypes, false);
   Function *NewFunc = Function::Create(FT, GlobalValue::ExternalLinkage,
                                        "oracle", BB->getModule());
