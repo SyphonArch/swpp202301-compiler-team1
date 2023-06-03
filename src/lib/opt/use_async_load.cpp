@@ -152,11 +152,16 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
   }
 
   DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+
+//for(int temp = 0; temp < 2; temp ++) {
+  
   for (BasicBlock &BB : F) {
     if (BB.empty())
       continue;
     // Part 1 : Move load instructions up
-    for (Instruction &I : BB) {
+    for (BasicBlock::iterator instrIter = BB.begin(), endIter = BB.end(); instrIter != endIter; ) {
+      Instruction &I = *instrIter;
+      ++instrIter;
 
       // newly added!!
 
@@ -203,7 +208,8 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
         int costMayReduceGEP = 0;
         while (priorGEPInst) {
           if (dyn_cast<PHINode>(priorGEPInst) ||
-              dyn_cast<GetElementPtrInst>(priorGEPInst))
+              dyn_cast<GetElementPtrInst>(priorGEPInst) ||
+              dyn_cast<LoadInst>(priorGEPInst))
             break;
           if (isInstUsedInGEP(getElemPtrInst, priorGEPInst))
             break;
@@ -244,8 +250,8 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
         if (dyn_cast<StoreInst>(priorLoadInst) ||
             dyn_cast<LoadInst>(priorLoadInst) ||
             dyn_cast<PHINode>(priorLoadInst) ||
-            priorLoadInst->mayReadOrWriteMemory() ||
-            dyn_cast<GetElementPtrInst>(priorLoadInst))
+            priorLoadInst->mayReadOrWriteMemory())
+      //       || dyn_cast<GetElementPtrInst>(priorLoadInst))
           break;
         if (loadPtr == priorLoadInst)
           break;
@@ -356,6 +362,9 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
         loadExistsBelow = true;
     }
   }
+
+//}
+
   return PreservedAnalyses::none();
 };
 

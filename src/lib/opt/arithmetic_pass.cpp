@@ -94,8 +94,8 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
       // change add %a 0 -> mul %a 1
       if (I.getOpcode() == Instruction::Add) {
         if (!C0 && C1 && (C1->getValue() == 0)) {
-          NewInst = BinaryOperator::Create(
-              Instruction::Mul, Op0, ConstantInt::get(Op0->getType(), 1));
+          NewInst = BinaryOperator::Create(Instruction::Mul, Op0,
+                                           ConstantInt::get(Op0->getType(), 1));
         }
       }
 
@@ -210,4 +210,3 @@ extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
           }};
 }
 } // namespace sc::opt::arithmetic_pass
-
