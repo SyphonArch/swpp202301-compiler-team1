@@ -34,6 +34,7 @@ void lcssa(Function &F, FunctionAnalysisManager &FAM) {
 
   bool modified = false;
 
+  // LI.getLoopsInPreorder() is used instead if LI, which the loop alters
   for (Loop *L : LI.getLoopsInPreorder()) {
     modified |= formLCSSARecursively(*L, DT, &LI, &SE);
   }
@@ -60,6 +61,7 @@ void rotate_loop(Function &F, FunctionAnalysisManager &FAM) {
   SimplifyQuery SQ = getBestSimplifyQuery(FAM, F);
 
   bool modified = false;
+  // LI.getLoopsInPreorder() is used instead if LI, which the loop alters
   for (Loop *L : LI.getLoopsInPreorder()) {
     if (LoopRotation(L, &LI, &TTI, &AC, &DT, &SE, &MSSAU, SQ, true, -1, true)) {
       LAM.invalidate(*L, PreservedAnalyses::none());
@@ -86,6 +88,7 @@ void simplify_loop(Function &F, FunctionAnalysisManager &FAM) {
 
   bool modified = false;
 
+  // LI.getLoopsInPreorder() is used instead if LI, which the loop alters
   for (Loop *L : LI.getLoopsInPreorder()) {
     modified |= simplifyLoop(L, &DT, &LI, &SE, &AC, &MSSAU, true);
   }
@@ -136,6 +139,7 @@ PreservedAnalyses LoopUnrolling::run(Function &F,
   AssumptionCache &AC = FAM.getResult<AssumptionAnalysis>(F);
   TargetTransformInfo &TTI = FAM.getResult<TargetIRAnalysis>(F);
 
+  // LI.getLoopsInPreorder() is used instead if LI, which the loop alters
   for (Loop *L : LI.getLoopsInPreorder()) {
     if (L->isInnermost() && L->isLCSSAForm(DT)) {
       // Skip loop if loop contains too many instructions
