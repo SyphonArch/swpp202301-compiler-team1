@@ -12,9 +12,18 @@
 using namespace llvm;
 using namespace std;
 
+bool isPowerOfTwo(uint32_t n) { return (n != 0) && ((n & (n - 1)) == 0); }
+
 namespace sc::opt::arithmetic_pass {
 PreservedAnalyses ArithmeticPass::run(Function &F,
                                       FunctionAnalysisManager &FAM) {
+
+  // first, if the name of the function is 'oracle', do not make arithmetic
+  // changes
+  StringRef functionName = F.getName();
+  if (functionName.equals("oracle")) {
+    return PreservedAnalyses::all();
+  }
 
   // first preprocess
   // change add const %a -> add %a const
@@ -23,15 +32,16 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
       auto temp = i++;
       Instruction &I = *temp;
 
-      //new change! also change order of And instruction!
-      if (I.getOpcode() == Instruction::Add || I.getOpcode() == Instruction::And) {
+      // new change! also change order of And instruction!
+      if (I.getOpcode() == Instruction::Add ||
+          I.getOpcode() == Instruction::And) {
         Value *Op0 = I.getOperand(0);
         Value *Op1 = I.getOperand(1);
         auto *C0 = dyn_cast<ConstantInt>(Op0);
         auto *C1 = dyn_cast<ConstantInt>(Op1);
         if (C0 && !C1) {
           Instruction *NewInst;
-          if(I.getOpcode() == Instruction::Add) {
+          if (I.getOpcode() == Instruction::Add) {
             NewInst = BinaryOperator::Create(Instruction::Add, Op1, Op0);
           } else {
             NewInst = BinaryOperator::Create(Instruction::And, Op1, Op0);
@@ -101,8 +111,8 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
       // change add %a 0 -> mul %a 1
       if (I.getOpcode() == Instruction::Add) {
         if (!C0 && C1 && (C1->getValue() == 0)) {
-          NewInst = BinaryOperator::Create(
-              Instruction::Mul, Op0, ConstantInt::get(Op0->getType(), 1));
+          NewInst = BinaryOperator::Create(Instruction::Mul, Op0,
+                                           ConstantInt::get(Op0->getType(), 1));
         }
       }
 
@@ -125,21 +135,9 @@ PreservedAnalyses ArithmeticPass::run(Function &F,
       // change and %x 2^c-1 -> urem %x (2^c)
       if (I.getOpcode() == Instruction::And) {
         if (!C0 && C1) {
-          if(lval >= 0) {
+          if (lval >= 0) {
             uint32_t lvalp1 = lval + 1;
-            bool is_lval_power_of_2 = false;
-            while(1) {
-              if(lvalp1 == 1 || lvalp1 == 0) {
-                is_lval_power_of_2 = true;
-                break;
-              } 
-              if(lvalp1 % 2 == 1) {
-                is_lval_power_of_2 = false;
-                break;
-              }
-              lvalp1 /= 2;
-            }
-            if(is_lval_power_of_2) {
+            if (isPowerOfTwo(lvalp1)) {
               NewInst = BinaryOperator::Create(
                   Instruction::URem, Op0,
                   ConstantInt::get(Op0->getType(), (lval + 1)));
@@ -243,4 +241,3 @@ extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
           }};
 }
 } // namespace sc::opt::arithmetic_pass
-
