@@ -65,6 +65,9 @@ struct StoreGroups {
 
   // Helper function to handle the stores in a temporary storage.
   void processAndSaveStoreGroup(StoreGroup &currentGroup) {
+    // Max size of a group is set to 8.
+    // So, number of pointers and values <= 16.
+    // This is because backend crashes when [number of argument > 16].
     const size_t MaxSize = 8;
     size_t groupSize = currentGroup.Stores.size();
 
