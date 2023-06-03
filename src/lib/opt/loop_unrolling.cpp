@@ -17,10 +17,31 @@
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 
 #define MAX_LOOP_SIZE 100
+#define DO_LCSSA_CONVERSION true
 
 using namespace llvm;
 
 namespace sc::opt::loop_unrolling {
+
+// Convert loops into LCSSA form
+void lcssa(Function &F, FunctionAnalysisManager &FAM) {
+  LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
+  if (LI.empty())
+    return;
+
+  DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+  ScalarEvolution &SE = FAM.getResult<ScalarEvolutionAnalysis>(F);
+
+  bool modified = false;
+
+  for (Loop *L : LI.getLoopsInPreorder()) {
+    modified |= formLCSSARecursively(*L, DT, &LI, &SE);
+  }
+
+  if (modified) {
+    FAM.invalidate(F, getLoopPassPreservedAnalyses());
+  }
+}
 
 // Rotates loops
 void rotate_loop(Function &F, FunctionAnalysisManager &FAM) {
@@ -74,10 +95,37 @@ void simplify_loop(Function &F, FunctionAnalysisManager &FAM) {
   }
 }
 
+// Replaces all freeze instructions by their operands
+int remove_freeze(Function &F) {
+  int removal_count = 0;
+  // Iterate over all basic blocks in the function
+  for (auto &BB : F) {
+    // Make a list of freeze instructions because we can't modify the list of
+    // instructions while iterating over it
+    vector<Instruction *> freezeInstructions;
+    // Iterate over all instructions in the basic block
+    for (auto &I : BB) {
+      // If this instruction is a freeze instruction, add it to the list
+      if (I.getOpcode() == Instruction::Freeze) {
+        freezeInstructions.push_back(&I);
+      }
+    }
+    // Now, replace all freeze instructions with their operands
+    for (auto *FI : freezeInstructions) {
+      FI->replaceAllUsesWith(FI->getOperand(0));
+      FI->eraseFromParent();
+      ++removal_count;
+    }
+  }
+  return removal_count;
+}
+
 PreservedAnalyses LoopUnrolling::run(Function &F,
                                      FunctionAnalysisManager &FAM) {
 
   // Loops must be in rotated canonical form for unrolling to happen
+  if (DO_LCSSA_CONVERSION)
+    lcssa(F, FAM);
   rotate_loop(F, FAM);
   simplify_loop(F, FAM);
 
@@ -112,13 +160,22 @@ PreservedAnalyses LoopUnrolling::run(Function &F,
       // Continues to merge while merges happen.
       bool is_merged;
       do {
-        vector<BasicBlock*> loop_blocks = L->getBlocksVector();
+        vector<BasicBlock *> loop_blocks = L->getBlocksVector();
         is_merged = false;
         for (BasicBlock *BB : loop_blocks) {
           is_merged |= MergeBlockIntoPredecessor(BB, &DTU, &LI);
         }
       } while (is_merged);
     }
+  }
+
+  // Runtime unrolling may introduce freeze instructions.
+  // Our backend doesn't like freeze instructions.
+  // We have no choice but to... pull them out.
+  int removed_freezes = remove_freeze(F);
+
+  if (removed_freezes) {
+    outs() << "loop-unrolling: removed " << removed_freezes << " freezes\n";
   }
   return PreservedAnalyses::none();
 }
