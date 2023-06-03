@@ -32,4 +32,4 @@ entry:
 ; CHECK-NEXT: }
 
 
-; case 7 : general loop-unrolled case 
+; case 7 : general loop-unrolled case added (requested by review)
