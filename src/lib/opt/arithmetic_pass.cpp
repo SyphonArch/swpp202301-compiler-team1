@@ -210,3 +210,4 @@ extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
           }};
 }
 } // namespace sc::opt::arithmetic_pass
+
