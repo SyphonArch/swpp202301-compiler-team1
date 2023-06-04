@@ -152,6 +152,7 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
 
   // Abort if no stack can be utilized.
   if (usable_stack_size <= 0) {
+    outs() << "Not enough stack area left\n";
     return PreservedAnalyses::all();
   }
 
