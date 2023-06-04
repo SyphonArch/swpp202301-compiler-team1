@@ -109,6 +109,7 @@ add_opt_pass(UseAsyncLoad use_async_load.cpp)
 add_opt_pass(FunctionInlining function_inlining.cpp)
 add_opt_pass(LoopUnrolling loop_unrolling.cpp)
 add_opt_pass(RegisterPressurePrinterPass register_pressure_analysis.cpp)
+add_opt_pass(HeapToStack heap_to_stack.cpp)
 add_opt_pass(OraclePass oracle_pass.cpp)
 add_opt_pass(SimplifyCFG simplify_cfg.cpp)
 

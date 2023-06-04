@@ -13,6 +13,7 @@
 #include "./opt/gvn_pass.h"
 #include "./opt/lcssa_pass.h"
 #include "./opt/loop_unrolling.h"
+#include "./opt/heap_to_stack.h"
 #include "./opt/oracle_pass.h"
 #include "./opt/simplify_cfg.h"
 #include "./opt/use_async_load.h"
@@ -51,6 +52,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
 
     MPM.addPass(llvm::createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
     // Add module-level opt passes below
+    MPM.addPass(heap_to_stack::HeapToStack());
     MPM.addPass(oracle_pass::OraclePass());
     MPM.addPass(function_inlining::FunctionInlining());
     MPM.addPass(createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));

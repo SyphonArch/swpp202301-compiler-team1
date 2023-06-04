@@ -9,5 +9,6 @@ gep_elim,GEPEliminatePass,gep-elim
 arithmetic_pass,ArithmeticPass,arithmetic-pass
 use_async_load,UseAsyncLoad,use-async-load
 register_pressure_analysis,RegisterPressurePrinterPass,register-pressure-printer-pass
+heap_to_stack,HeapToStack,heap-to-stack
 oracle_pass,OraclePass,oracle-pass
 function_inlining,FunctionInlining,function-inlining
