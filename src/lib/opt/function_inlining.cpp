@@ -138,13 +138,13 @@ static void mergeToCallSite(CallInst *CI, Function::iterator &FirstNewBlock,
 
   // Now, deal with the case of multiple basic blocks in the Callee.
   // First, split the basic block into [basic block before call] and [after
-  // call]. 
+  // call].
   // Second, set the branch in the [basic block before call] to the
-  // cloned function 
+  // cloned function
   // Third, merge the return block with the [basic block after
-  // call]. 
+  // call].
   // Fourth, set the `branch to the return block` to the [basic block
-  // after call]. 
+  // after call].
   // Fifth, replace the call instruction and remove the return
   // instruction.
 
@@ -229,6 +229,21 @@ bool shouldInline(CallInst *CI) {
   // caller)
   if (Callee == CI->getFunction()) {
     return false;
+  }
+
+  // Check if Callee has a (Non-intrinsic) call inside
+  for (auto &BB : *Callee) {
+    for (auto &I : BB) {
+      if (auto *CallI = dyn_cast<CallInst>(&I)) {
+        Function *NestedCallee = CallI->getCalledFunction();
+        // If the called function inside Callee has a definition, do not inline.
+        // This Declaration check prevents intrinsic calls treated as normal
+        // calls.
+        if (NestedCallee && !NestedCallee->isDeclaration()) {
+          return false;
+        }
+      }
+    }
   }
 
   // Check if the function has multiple return instruction.
