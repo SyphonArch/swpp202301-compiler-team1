@@ -35,7 +35,7 @@ std::string my_functions_code =
     "  br i1 %first_alloc, label %init_heap, label %alloc\n"
     "init_heap:\n"
     "  ; Set current_pos to the start of the heap\n"
-    "  %new_current_pos = inttoptr i64 0 to i8*\n"
+    "  %new_current_pos = inttoptr i64 4096 to i8*\n"
     "  store i8* %new_current_pos, i8** @current_pos\n"
     "  br label %alloc\n"
     "alloc:\n"
