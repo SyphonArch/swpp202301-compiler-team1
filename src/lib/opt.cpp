@@ -9,14 +9,13 @@
 #include "./opt/arithmetic_pass.h"
 #include "./opt/bias_to_false_branch.h"
 #include "./opt/function_inlining.h"
+#include "./opt/gep_elim.h"
 #include "./opt/gvn_pass.h"
 #include "./opt/lcssa_pass.h"
 #include "./opt/loop_unrolling.h"
 #include "./opt/oracle_pass.h"
 #include "./opt/simplify_cfg.h"
 #include "./opt/use_async_load.h"
-#include "./opt/loop_unrolling.h"
-#include "./opt/gep_elim.h"
 using namespace std::string_literals;
 
 namespace sc::opt {
