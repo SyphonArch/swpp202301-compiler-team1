@@ -15,13 +15,13 @@ entry:
   %add5 = getelementptr i32, i32* %ptr, i64 5
   %a5 = load i32, i32* %add5
   %b5 = add i32 %a5, 5
-  %dummy1 = add i32 1, 3
   %add6 = getelementptr i32, i32* %ptr, i64 6
   %a6 = load i32, i32* %add6
   %b6 = add i32 %a6, 6
   %add7 = getelementptr i32, i32* %ptr, i64 7
   %a7 = load i32, i32* %add7
   %b7 = add i32 %a7, 7
+  %dummy1 = add i32 1, 3
   %dummy2 = add i32 1, 3
   %dummy3 = add i32 1, 3
   ret void
@@ -40,13 +40,13 @@ entry:
 ; CHECK-NEXT:  %add5 = getelementptr i32, i32* %ptr, i64 5
 ; CHECK-NEXT:  %4 = call i32 @aload_i32(i32* %add5)
 ; CHECK-NEXT:  %add6 = getelementptr i32, i32* %ptr, i64 6
-; CHECK-NEXT:  %dummy1 = add i32 1, 3
 ; CHECK-NEXT:  %5 = call i32 @aload_i32(i32* %add6)
 ; CHECK-NEXT:  %add7 = getelementptr i32, i32* %ptr, i64 7
 ; CHECK-NEXT:  %b1 = add i32 %0, 1
 ; CHECK-NEXT:  %6 = call i32 @aload_i32(i32* %add7)
 ; CHECK-NEXT:  %dummy3 = add i32 1, 3
 ; CHECK-NEXT:  %dummy2 = add i32 1, 3
+; CHECK-NEXT:  %dummy1 = add i32 1, 3
 ; CHECK-NEXT:  %b2 = add i32 %1, 2
 ; CHECK-NEXT:  %b3 = add i32 %2, 3
 ; CHECK-NEXT:  %b4 = add i32 %3, 4
