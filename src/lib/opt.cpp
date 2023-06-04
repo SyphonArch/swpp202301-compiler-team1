@@ -9,13 +9,13 @@
 #include "./opt/arithmetic_pass.h"
 #include "./opt/bias_to_false_branch.h"
 #include "./opt/function_inlining.h"
+#include "./opt/gep_elim.h"
 #include "./opt/gvn_pass.h"
 #include "./opt/lcssa_pass.h"
 #include "./opt/loop_unrolling.h"
 #include "./opt/oracle_pass.h"
+#include "./opt/simplify_cfg.h"
 #include "./opt/use_async_load.h"
-#include "./opt/loop_unrolling.h"
-#include "./opt/gep_elim.h"
 using namespace std::string_literals;
 
 namespace sc::opt {
@@ -36,10 +36,10 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add loop-level opt passes below
 
     // Add function-level opt passes below
-
-    FPM.addPass(gvn_pass::GVNpass());
     FPM.addPass(lcssa_pass::LCSSApass());
     FPM.addPass(loop_unrolling::LoopUnrolling());
+    FPM.addPass(gvn_pass::GVNpass());
+    FPM.addPass(simplify_cfg::SimplifyCFG());
     FPM.addPass(bias_to_false_branch::BiasToFalseBranch());
     FPM.addPass(add_to_sum::AddToSum());
     FPM.addPass(gep_elim::GEPEliminatePass());
@@ -53,6 +53,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add module-level opt passes below
     MPM.addPass(oracle_pass::OraclePass());
     MPM.addPass(function_inlining::FunctionInlining());
+    MPM.addPass(createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
 
     MPM.run(*__M, __MAM);
     sc::print_ir::printIRIfVerbose(*__M, "After optimization");

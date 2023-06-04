@@ -7,12 +7,13 @@ define i32 @sum_of_squares(i32 %n) {
 ; CHECK-NEXT:   store i32 0, i32* %sum, align 4
 ; CHECK-NEXT:   %i = alloca i32, align 4
 ; CHECK-NEXT:   store i32 0, i32* %i, align 4
-; CHECK-NEXT:   br label %loop
-; CHECK: loop:
-; CHECK-NEXT:   %cur_i = load i32, i32* %i, align 4
-; CHECK-NEXT:   %cmp = icmp slt i32 %cur_i, %n
-; CHECK-NEXT:   br i1 %cmp, label %loop_body, label %loop_exit
-; CHECK: loop_body:
+; CHECK-NEXT:   %cur_i1 = load i32, i32* %i, align 4
+; CHECK-NEXT:   %cur_sum2 = load i32, i32* %sum, align 4
+; CHECK-NEXT:   %cmp3 = icmp slt i32 %cur_i1, %n
+; CHECK-NEXT:   br i1 %cmp3, label %loop_body.lr.ph, label %loop_exit
+; CHECK: loop_body.lr.ph:                                  ; preds = %entry
+; CHECK-NEXT:   br label %loop_body
+; CHECK: loop_body:                                        ; preds = %loop_body.7, %loop_body.lr.ph
 ; CHECK-NEXT:   %cur_i_2 = load i32, i32* %i, align 4
 ; CHECK-NEXT:   %cur_sum_2 = load i32, i32* %sum, align 4
 ; CHECK-NEXT:   %cur_i_sq = mul i32 %cur_i_2, %cur_i_2
@@ -20,10 +21,10 @@ define i32 @sum_of_squares(i32 %n) {
 ; CHECK-NEXT:   store i32 %new_sum, i32* %sum, align 4
 ; CHECK-NEXT:   %next_i = add i32 %cur_i_2, 1
 ; CHECK-NEXT:   store i32 %next_i, i32* %i, align 4
-; CHECK-NEXT:   %cur_i.1 = load i32, i32* %i, align 4
-; CHECK-NEXT:   %cmp.1 = icmp slt i32 %cur_i.1, %n
-; CHECK-NEXT:   br i1 %cmp.1, label %loop_body.1, label %loop_exit
-; CHECK: loop_body.1:
+; CHECK-NEXT:   %cur_i = load i32, i32* %i, align 4
+; CHECK-NEXT:   %cmp = icmp slt i32 %cur_i, %n
+; CHECK-NEXT:   br i1 %cmp, label %loop_body.1, label %loop.loop_exit_crit_edge
+; CHECK: loop_body.1:                                      ; preds = %loop_body
 ; CHECK-NEXT:   %cur_i_2.1 = load i32, i32* %i, align 4
 ; CHECK-NEXT:   %cur_sum_2.1 = load i32, i32* %sum, align 4
 ; CHECK-NEXT:   %cur_i_sq.1 = mul i32 %cur_i_2.1, %cur_i_2.1
@@ -31,10 +32,10 @@ define i32 @sum_of_squares(i32 %n) {
 ; CHECK-NEXT:   store i32 %new_sum.1, i32* %sum, align 4
 ; CHECK-NEXT:   %next_i.1 = add i32 %cur_i_2.1, 1
 ; CHECK-NEXT:   store i32 %next_i.1, i32* %i, align 4
-; CHECK-NEXT:   %cur_i.2 = load i32, i32* %i, align 4
-; CHECK-NEXT:   %cmp.2 = icmp slt i32 %cur_i.2, %n
-; CHECK-NEXT:   br i1 %cmp.2, label %loop_body.2, label %loop_exit
-; CHECK: loop_body.2:
+; CHECK-NEXT:   %cur_i.1 = load i32, i32* %i, align 4
+; CHECK-NEXT:   %cmp.1 = icmp slt i32 %cur_i.1, %n
+; CHECK-NEXT:   br i1 %cmp.1, label %loop_body.2, label %loop.loop_exit_crit_edge
+; CHECK: loop_body.2:                                      ; preds = %loop_body.1
 ; CHECK-NEXT:   %cur_i_2.2 = load i32, i32* %i, align 4
 ; CHECK-NEXT:   %cur_sum_2.2 = load i32, i32* %sum, align 4
 ; CHECK-NEXT:   %cur_i_sq.2 = mul i32 %cur_i_2.2, %cur_i_2.2
@@ -42,10 +43,10 @@ define i32 @sum_of_squares(i32 %n) {
 ; CHECK-NEXT:   store i32 %new_sum.2, i32* %sum, align 4
 ; CHECK-NEXT:   %next_i.2 = add i32 %cur_i_2.2, 1
 ; CHECK-NEXT:   store i32 %next_i.2, i32* %i, align 4
-; CHECK-NEXT:   %cur_i.3 = load i32, i32* %i, align 4
-; CHECK-NEXT:   %cmp.3 = icmp slt i32 %cur_i.3, %n
-; CHECK-NEXT:   br i1 %cmp.3, label %loop_body.3, label %loop_exit
-; CHECK: loop_body.3:
+; CHECK-NEXT:   %cur_i.2 = load i32, i32* %i, align 4
+; CHECK-NEXT:   %cmp.2 = icmp slt i32 %cur_i.2, %n
+; CHECK-NEXT:   br i1 %cmp.2, label %loop_body.3, label %loop.loop_exit_crit_edge
+; CHECK: loop_body.3:                                      ; preds = %loop_body.2
 ; CHECK-NEXT:   %cur_i_2.3 = load i32, i32* %i, align 4
 ; CHECK-NEXT:   %cur_sum_2.3 = load i32, i32* %sum, align 4
 ; CHECK-NEXT:   %cur_i_sq.3 = mul i32 %cur_i_2.3, %cur_i_2.3
@@ -53,10 +54,10 @@ define i32 @sum_of_squares(i32 %n) {
 ; CHECK-NEXT:   store i32 %new_sum.3, i32* %sum, align 4
 ; CHECK-NEXT:   %next_i.3 = add i32 %cur_i_2.3, 1
 ; CHECK-NEXT:   store i32 %next_i.3, i32* %i, align 4
-; CHECK-NEXT:   %cur_i.4 = load i32, i32* %i, align 4
-; CHECK-NEXT:   %cmp.4 = icmp slt i32 %cur_i.4, %n
-; CHECK-NEXT:   br i1 %cmp.4, label %loop_body.4, label %loop_exit
-; CHECK: loop_body.4:
+; CHECK-NEXT:   %cur_i.3 = load i32, i32* %i, align 4
+; CHECK-NEXT:   %cmp.3 = icmp slt i32 %cur_i.3, %n
+; CHECK-NEXT:   br i1 %cmp.3, label %loop_body.4, label %loop.loop_exit_crit_edge
+; CHECK: loop_body.4:                                      ; preds = %loop_body.3
 ; CHECK-NEXT:   %cur_i_2.4 = load i32, i32* %i, align 4
 ; CHECK-NEXT:   %cur_sum_2.4 = load i32, i32* %sum, align 4
 ; CHECK-NEXT:   %cur_i_sq.4 = mul i32 %cur_i_2.4, %cur_i_2.4
@@ -64,10 +65,10 @@ define i32 @sum_of_squares(i32 %n) {
 ; CHECK-NEXT:   store i32 %new_sum.4, i32* %sum, align 4
 ; CHECK-NEXT:   %next_i.4 = add i32 %cur_i_2.4, 1
 ; CHECK-NEXT:   store i32 %next_i.4, i32* %i, align 4
-; CHECK-NEXT:   %cur_i.5 = load i32, i32* %i, align 4
-; CHECK-NEXT:   %cmp.5 = icmp slt i32 %cur_i.5, %n
-; CHECK-NEXT:   br i1 %cmp.5, label %loop_body.5, label %loop_exit
-; CHECK: loop_body.5:
+; CHECK-NEXT:   %cur_i.4 = load i32, i32* %i, align 4
+; CHECK-NEXT:   %cmp.4 = icmp slt i32 %cur_i.4, %n
+; CHECK-NEXT:   br i1 %cmp.4, label %loop_body.5, label %loop.loop_exit_crit_edge
+; CHECK: loop_body.5:                                      ; preds = %loop_body.4
 ; CHECK-NEXT:   %cur_i_2.5 = load i32, i32* %i, align 4
 ; CHECK-NEXT:   %cur_sum_2.5 = load i32, i32* %sum, align 4
 ; CHECK-NEXT:   %cur_i_sq.5 = mul i32 %cur_i_2.5, %cur_i_2.5
@@ -75,10 +76,10 @@ define i32 @sum_of_squares(i32 %n) {
 ; CHECK-NEXT:   store i32 %new_sum.5, i32* %sum, align 4
 ; CHECK-NEXT:   %next_i.5 = add i32 %cur_i_2.5, 1
 ; CHECK-NEXT:   store i32 %next_i.5, i32* %i, align 4
-; CHECK-NEXT:   %cur_i.6 = load i32, i32* %i, align 4
-; CHECK-NEXT:   %cmp.6 = icmp slt i32 %cur_i.6, %n
-; CHECK-NEXT:   br i1 %cmp.6, label %loop_body.6, label %loop_exit
-; CHECK: loop_body.6:
+; CHECK-NEXT:   %cur_i.5 = load i32, i32* %i, align 4
+; CHECK-NEXT:   %cmp.5 = icmp slt i32 %cur_i.5, %n
+; CHECK-NEXT:   br i1 %cmp.5, label %loop_body.6, label %loop.loop_exit_crit_edge
+; CHECK: loop_body.6:                                      ; preds = %loop_body.5
 ; CHECK-NEXT:   %cur_i_2.6 = load i32, i32* %i, align 4
 ; CHECK-NEXT:   %cur_sum_2.6 = load i32, i32* %sum, align 4
 ; CHECK-NEXT:   %cur_i_sq.6 = mul i32 %cur_i_2.6, %cur_i_2.6
@@ -86,10 +87,10 @@ define i32 @sum_of_squares(i32 %n) {
 ; CHECK-NEXT:   store i32 %new_sum.6, i32* %sum, align 4
 ; CHECK-NEXT:   %next_i.6 = add i32 %cur_i_2.6, 1
 ; CHECK-NEXT:   store i32 %next_i.6, i32* %i, align 4
-; CHECK-NEXT:   %cur_i.7 = load i32, i32* %i, align 4
-; CHECK-NEXT:   %cmp.7 = icmp slt i32 %cur_i.7, %n
-; CHECK-NEXT:   br i1 %cmp.7, label %loop_body.7, label %loop_exit
-; CHECK: loop_body.7:
+; CHECK-NEXT:   %cur_i.6 = load i32, i32* %i, align 4
+; CHECK-NEXT:   %cmp.6 = icmp slt i32 %cur_i.6, %n
+; CHECK-NEXT:   br i1 %cmp.6, label %loop_body.7, label %loop.loop_exit_crit_edge
+; CHECK: loop_body.7:                                      ; preds = %loop_body.6
 ; CHECK-NEXT:   %cur_i_2.7 = load i32, i32* %i, align 4
 ; CHECK-NEXT:   %cur_sum_2.7 = load i32, i32* %sum, align 4
 ; CHECK-NEXT:   %cur_i_sq.7 = mul i32 %cur_i_2.7, %cur_i_2.7
@@ -97,10 +98,15 @@ define i32 @sum_of_squares(i32 %n) {
 ; CHECK-NEXT:   store i32 %new_sum.7, i32* %sum, align 4
 ; CHECK-NEXT:   %next_i.7 = add i32 %cur_i_2.7, 1
 ; CHECK-NEXT:   store i32 %next_i.7, i32* %i, align 4
-; CHECK-NEXT:   br label %loop
-; CHECK: loop_exit:
+; CHECK-NEXT:   %cur_i.7 = load i32, i32* %i, align 4
+; CHECK-NEXT:   %cmp.7 = icmp slt i32 %cur_i.7, %n
+; CHECK-NEXT:   br i1 %cmp.7, label %loop_body, label %loop.loop_exit_crit_edge
+; CHECK: loop.loop_exit_crit_edge:                         ; preds = %loop_body.7, %loop_body.6, %loop_body.5, %loop_body.4, %loop_body.3, %loop_body.2, %loop_body.1, %loop_body
+; CHECK-NEXT:   br label %loop_exit
+; CHECK: loop_exit:                                        ; preds = %loop.loop_exit_crit_edge, %entry
 ; CHECK-NEXT:   %final_sum = load i32, i32* %sum, align 4
 ; CHECK-NEXT:   ret i32 %final_sum
+
   entry:
     %sum = alloca i32
     store i32 0, i32* %sum
