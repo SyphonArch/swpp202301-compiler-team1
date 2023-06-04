@@ -9,6 +9,7 @@ define i32 @main() {
     %stackmem = alloca i8, i64 102000
 
     ; Allocate 1000 bytes on the heap
+    ; CHECK: call i8* @my_malloc(i64 1000)
     %heapmem = call i8* @malloc(i64 1000)
 
     ret i32 0
