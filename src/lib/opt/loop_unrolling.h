@@ -15,8 +15,7 @@ using namespace llvm;
 namespace sc::opt::loop_unrolling {
 class LoopUnrolling : public PassInfoMixin<LoopUnrolling> {
 public:
-  PreservedAnalyses run(Function &val, FunctionAnalysisManager &FAM);
-  bool runOnLoop(Loop *L, ScalarEvolution &SE);
+  static PreservedAnalyses run(Function &val, FunctionAnalysisManager &FAM);
 };
 } // namespace sc::opt::loop_unrolling
 

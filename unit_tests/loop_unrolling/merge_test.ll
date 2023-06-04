@@ -1,7 +1,6 @@
-; Test a simple loop with phi nodes
+; Check that blocks within loops are merged
 
 define i32 @sumLoop(i32 %N) {
-; CHECK-LABEL: @sumLoop(i32 %N)
 ; CHECK: entry:
 ; CHECK-NEXT:   %exit_cond11 = icmp sgt i32 %N, 1
 ; CHECK-NEXT:   br i1 %exit_cond11, label %latch.lr.ph, label %exit
@@ -59,12 +58,15 @@ define i32 @sumLoop(i32 %N) {
 entry:
   br label %loop
 loop:
-  %sum = phi i32 [ 0, %entry ], [ %next_sum, %latch ]
-  %i = phi i32 [ 1, %entry ], [ %next_i, %latch ]
+  %sum = phi i32 [ 0, %entry ], [ %next_sum, %merge ]
+  %i = phi i32 [ 1, %entry ], [ %next_i, %merge ]
   %exit_cond1 = icmp sgt i32 %N, %i
   br i1 %exit_cond1, label %latch, label %exit
 
 latch:
+  br label %merge
+
+merge:
   %next_sum = add i32 %sum, %i
   %next_i = add i32 %i, 1
   br label %loop
