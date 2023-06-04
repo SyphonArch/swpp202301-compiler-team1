@@ -14,9 +14,10 @@
 using namespace llvm;
 using namespace std;
 
-#define SAFETY_BUFFER 1024
 #define ABORT_ON_RECURSION true
-#define HEAP_SIZE 102400
+
+const int SAFETY_BUFFER = 1024;
+const int HEAP_SIZE = 102400;
 
 namespace sc::opt::heap_to_stack {
 
