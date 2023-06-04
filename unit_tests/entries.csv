@@ -4,6 +4,7 @@ lcssa_pass,LCSSApass,lcssa-pass
 loop_unrolling,LoopUnrolling,loop-unrolling
 bias_to_false_branch,BiasToFalseBranch,bias-to-false-branch
 add_to_sum,AddToSum,add-to-sum
+gep_elim,GEPEliminatePass,gep-elim
 arithmetic_pass,ArithmeticPass,arithmetic-pass
 use_async_load,UseAsyncLoad,use-async-load
 register_pressure_analysis,RegisterPressurePrinterPass,register-pressure-printer-pass
