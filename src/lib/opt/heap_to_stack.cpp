@@ -61,6 +61,7 @@ std::string my_functions_code =
     "  ret void\n"
     "}";
 
+// Checks whether there are cycles in the call graph
 bool hasCycle(const Function *current, std::vector<const Function *> &path,
               std::set<const Function *> &visited, CallGraph &CG) {
   if (visited.count(current))
@@ -86,8 +87,9 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
   Function *mallocFunc = M.getFunction("malloc");
   Function *freeFunc = M.getFunction("free");
 
-  bool malloc_found = false;
   // Check if module contains `malloc` usages
+  // Abort if no `malloc`s found
+  bool malloc_found = false;
   for (auto &F : M)
     for (auto &BB : F)
       for (auto &I : BB)
@@ -101,23 +103,26 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
     return PreservedAnalyses::all();
   }
 
-  CallGraph CG(M);
-  for (auto &function : M) {
-    if (function.isDeclaration())
-      continue;
-
-    std::vector<const Function *> path;
-    std::set<const Function *> visited;
-    if (hasCycle(&function, path, visited, CG)) {
-      outs() << "Recursive call cycle detected: ";
-      for (auto *f : path)
-        outs() << f->getName() << " -> ";
-      outs() << function.getName() << "\n";
-      if (ABORT_ON_RECURSION)
+  // Check if recursive calls exist
+  // Recursive calls invalidate the runtime stack usage upper bound
+  if (ABORT_ON_RECURSION) {
+    CallGraph CG(M);
+    for (auto &function : M) {
+      if (function.isDeclaration())
+        continue;
+      std::vector<const Function *> path;
+      std::set<const Function *> visited;
+      if (hasCycle(&function, path, visited, CG)) {
+        outs() << "Recursive call cycle detected: ";
+        for (auto *f : path)
+          outs() << f->getName() << " -> ";
+        outs() << function.getName() << "\n";
         return PreservedAnalyses::all();
+      }
     }
   }
 
+  // Calculate the upper bound of runtime stack usage
   int totalStackSize = SAFETY_BUFFER;
   for (auto &F : M) {
     for (auto &BB : F) {
@@ -135,6 +140,7 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
     }
   }
 
+  // Replace the [HEAP-START] constant in the code to be inserted
   string heap_start_token = "[HEAP-START]";
   string heap_start = itostr(totalStackSize);
   size_t replace_pos = my_functions_code.find(heap_start_token);
