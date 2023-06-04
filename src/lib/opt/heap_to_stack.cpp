@@ -87,6 +87,11 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
   Function *mallocFunc = M.getFunction("malloc");
   Function *freeFunc = M.getFunction("free");
 
+  // All functions should be found!
+  if (!mallocFunc || !freeFunc) {
+    return PreservedAnalyses::none();
+  }
+
   // Check if module contains `malloc` usages
   // Abort if no `malloc`s found
   bool malloc_found = false;
@@ -131,10 +136,12 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
 
         // If the instruction is an alloca, add its allocated size
         if (auto *AI = dyn_cast<AllocaInst>(&I)) {
-          if (AI->getAllocatedType()->isSized()) {
-            totalStackSize +=
-                (int)M.getDataLayout().getTypeAllocSize(AI->getAllocatedType());
-          }
+          Type *alloc_type = AI->getAllocatedType();
+          auto *array_size = dyn_cast<ConstantInt>(AI->getArraySize());
+          assert(array_size);
+          totalStackSize +=
+              (int)(array_size->getZExtValue() *
+                    M.getDataLayout().getTypeAllocSize(alloc_type));
         }
       }
     }
@@ -163,8 +170,8 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
   Function *myMallocFunc = M.getFunction("my_malloc");
   Function *myFreeFunc = M.getFunction("my_free");
 
-  // Both `my_malloc` and `malloc` should be found!
-  if (!myMallocFunc || !mallocFunc) {
+  // All functions should be found!
+  if (!myMallocFunc || !myFreeFunc) {
     exit(1);
   }
 
