@@ -36,3 +36,12 @@ entry:
   store i32 %a2, i32* %ptr_c, align 4
   ret void
 }
+
+; CHECK: define i64 @oracle(i32 %a, i32* %ptr_c, i32 %a1, i32* %ptr_c2, i32 %c, i32* %ptr_b, i32 %b, i32* %ptr_a) {
+; CHECK-NEXT: entry:
+; CHECK-NEXT:   store i32 %a, i32* %ptr_c, align 4
+; CHECK-NEXT:   store i32 %a1, i32* %ptr_c2, align 4
+; CHECK-NEXT:   store i32 %c, i32* %ptr_b, align 4
+; CHECK-NEXT:   store i32 %b, i32* %ptr_a, align 4
+; CHECK-NEXT:   ret i64 0
+;

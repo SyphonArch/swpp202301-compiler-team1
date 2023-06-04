@@ -26,3 +26,17 @@ entry:
   store i32 2, i32* getelementptr inbounds ([16 x i32], [16 x i32]* @num_to_bits, i64 0, i64 9), align 4
   ret i32 0
 }
+
+
+; CHECK: @oracle(i32 %0, i32* %1, i32 %2, i32* %3, i32 %4, i32* %5, i32 %6, i32* %7, i32 %8, i32* %9, i32 %10, i32* %11, i32 %12, i32* %13, i32 %14, i32* %15) {
+; CHECK: entry:
+; CHECK:   store i32 %0, i32* %1, align 4
+; CHECK:   store i32 %2, i32* %3, align 4
+; CHECK:   store i32 %4, i32* %5, align 4
+; CHECK:   store i32 %6, i32* %7, align 4
+; CHECK:   store i32 %8, i32* %9, align 4
+; CHECK:   store i32 %10, i32* %11, align 4
+; CHECK:   store i32 %12, i32* %13, align 4
+; CHECK:   store i32 %14, i32* %15, align 4
+; CHECK:   ret i64 0
+;

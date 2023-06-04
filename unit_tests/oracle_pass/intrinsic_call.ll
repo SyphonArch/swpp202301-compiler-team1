@@ -28,6 +28,12 @@ entry:
   ret i32 0
 }
 
+; CHECK: define i64 @oracle(i32 %conv2, i32* %M, i32 %conv, i32* %N) {
+; CHECK-NEXT: entry:
+; CHECK-NEXT:   store i32 %conv2, i32* %M, align 4
+; CHECK-NEXT:   store i32 %conv, i32* %N, align 4
+; CHECK-NEXT:   ret i64 0
+;
 
 declare i64 @read(...)
 declare i32 @incr_i32(i32)

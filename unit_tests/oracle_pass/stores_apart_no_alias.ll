@@ -26,3 +26,9 @@ entry:
   ret void
 }
 
+; CHECK: define i64 @oracle(i32 %b, i32* %arrayidx2, i32 %a, i32* %arrayidx) {
+; CHECK-NEXT: entry:
+; CHECK-NEXT:   store i32 %b, i32* %arrayidx2, align 4
+; CHECK-NEXT:   store i32 %a, i32* %arrayidx, align 4
+; CHECK-NEXT:   ret i64 0
+;
