@@ -1,83 +1,227 @@
 #include "heap_to_stack.h"
+#include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Linker/Linker.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/SourceMgr.h"
+#include <map>
 
 using namespace llvm;
 using namespace std;
 
-namespace sc::opt::heap_to_stack {
-PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
+#define SAFETY_BUFFER 1024
 
-  set<Instruction *> toErase;
+namespace sc::opt::heap_to_stack {
+
+// Custom functions `my_malloc` and `my_free` to be injected
+std::string my_functions_code =
+    "declare i8* @malloc(i64)\n"
+    "declare void @free(i8*)\n"
+    "@current_pos = global i8* null\n"
+    "\n"
+    "define i8* @my_malloc(i64 %size) {\n"
+    "  %heap_start_int = add i64 0, [HEAP-START]\n"
+    "  %heap_end_int = add i64 0, 102400\n"
+    "  %heap_end = inttoptr i64 %heap_end_int to i8*\n"
+    "  ; Check if current_pos is null, i.e., this is the first allocation\n"
+    "  %current_pos_val = load i8*, i8** @current_pos\n"
+    "  %first_alloc = icmp eq i8* %current_pos_val, null\n"
+    "  br i1 %first_alloc, label %init_heap, label %alloc\n"
+    "\n"
+    "init_heap:\n"
+    "  ; Set current_pos to the start of the heap\n"
+    "  %new_current_pos = inttoptr i64 %heap_start_int to i8*\n"
+    "  store i8* %new_current_pos, i8** @current_pos\n"
+    "  br label %alloc\n"
+    "\n"
+    "alloc:\n"
+    "  %current_pos.1 = load i8*, i8** @current_pos\n"
+    "  %next_pos = getelementptr i8, i8* %current_pos.1, i64 %size\n"
+    "  %overflow = icmp ugt i8* %next_pos, %heap_end\n"
+    "  br i1 %overflow, label %fallback, label %update_pos\n"
+    "\n"
+    "update_pos:\n"
+    "  store i8* %next_pos, i8** @current_pos\n"
+    "  ret i8* %current_pos.1\n"
+    "\n"
+    "fallback:\n"
+    "  %malloc_ptr = call i8* @malloc(i64 %size)\n"
+    "  ret i8* %malloc_ptr\n"
+    "}\n"
+    "\n"
+    "define void @my_free(i8* %ptr) {\n"
+    "  %heap_end_int = add i64 0, 102400\n"
+    "  %heap_end = inttoptr i64 %heap_end_int to i8*\n"
+    "  %is_on_stack = icmp ugt i8* %ptr, %heap_end\n"
+    "  br i1 %is_on_stack, label %stack, label %heap\n"
+    "\n"
+    "heap:\n"
+    "  ret void\n"
+    "\n"
+    "stack:\n"
+    "  call void @free(i8* %ptr)\n"
+    "  ret void\n"
+    "}";
+
+bool tarjans(CallGraphNode *V, CallGraph *CG,
+             SmallVector<CallGraphNode *, 32> &Stack,
+             SmallPtrSet<CallGraphNode *, 32> &OnStack,
+             std::map<CallGraphNode *, std::pair<unsigned, unsigned>> &Indices,
+             unsigned &Index) {
+  Indices[V] = std::make_pair(Index, Index);
+  Index++;
+  Stack.push_back(V);
+  OnStack.insert(V);
+
+  for (auto &I : *V) {
+    if (Function *Callee = I.second->getFunction()) {
+      auto CalleeNode = CG->getOrInsertFunction(Callee);
+      if (!Indices.count(CalleeNode)) {
+        tarjans(CalleeNode, CG, Stack, OnStack, Indices, Index);
+        Indices[V].second =
+            std::min(Indices[V].second, Indices[CalleeNode].second);
+      } else if (OnStack.count(CalleeNode)) {
+        Indices[V].second =
+            std::min(Indices[V].second, Indices[CalleeNode].first);
+      }
+    }
+  }
+
+  if (Indices[V].first == Indices[V].second) {
+    while (true) {
+      CallGraphNode *N = Stack.pop_back_val();
+      OnStack.erase(N);
+      if (N == V)
+        break;
+    }
+    if (!Stack.empty() && Indices[V].first <= Indices[Stack.back()].second) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool checkForRecursion(Function *F, CallGraph *CG) {
+  SmallVector<CallGraphNode *, 32> Stack;
+  SmallPtrSet<CallGraphNode *, 32> OnStack;
+  std::map<CallGraphNode *, std::pair<unsigned, unsigned>> Indices;
+  unsigned Index = 0;
+  return tarjans(CG->getOrInsertFunction(F), CG, Stack, OnStack, Indices,
+                 Index);
+}
+PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
+  Function *mallocFunc = M.getFunction("malloc");
+  Function *freeFunc = M.getFunction("free");
+
+  bool malloc_found = false;
+  // Replace `malloc` and `free` with `my_malloc` and `my_free` respectively
+  for (auto &F : M)
+    for (auto &BB : F)
+      for (auto &I : BB)
+        if (auto *CI = dyn_cast<CallInst>(&I))
+          if (CI->getCalledFunction() == mallocFunc) {
+            malloc_found = true;
+            break;
+          }
+  if (!malloc_found) {
+    outs() << "No malloc usage\n";
+    return PreservedAnalyses::all();
+  }
+
+  CallGraph CG(M);
   for (auto &F : M) {
     if (F.isDeclaration())
       continue;
-    LLVMContext &context = F.getContext();
-    IRBuilder<> builder(context);
-    BasicBlock *entry_block = &F.getEntryBlock();
-    builder.SetInsertPoint(entry_block, entry_block->getFirstInsertionPt());
+    if (checkForRecursion(&F, &CG)) {
+      outs() << "Recursion found! Abort.\n";
+      return PreservedAnalyses::all();
+    }
+  }
 
+  int totalStackSize = SAFETY_BUFFER;
+  for (auto &F : M) {
     for (auto &BB : F) {
-      for (auto &Inst : BB) {
-        if (auto *Call = dyn_cast<CallInst>(&Inst)) {
-          bool proceed = false;
+      for (auto &I : BB) {
+        totalStackSize += 8; // Add 8 bytes for each instruction
 
-          Function *Callee = Call->getCalledFunction();
-          if (Callee && Callee->getName() == "malloc") {
-            Value *AllocSize = Call->getArgOperand(0);
-            Type *AllocType = Call->getType()->getPointerElementType();
+        // If the instruction is an alloca, add its allocated size
+        if (auto *AI = dyn_cast<AllocaInst>(&I)) {
+          if (AI->getAllocatedType()->isSized()) {
+            totalStackSize +=
+                (int)M.getDataLayout().getTypeAllocSize(AI->getAllocatedType());
+          }
+        }
+      }
+    }
+  }
 
-            if (dyn_cast<ConstantInt>(AllocSize)) {
-              for (auto User : Call->users()) {
-                // Check if the user is a CallInst and corresponds to 'free'
-                if (auto *CI = dyn_cast<CallInst>(User)) {
-                  Function *Callee2 = CI->getCalledFunction();
-                  if (Callee2 && Callee2->getName() == "free") {
-                    if (CI->getParent() == &BB) {
-                      proceed = true;
-                      break;
-                    }
-                  }
-                }
-              }
-              if (proceed) {
-                outs() << "Found malloc: " << Inst << '\n';
-                outs().flush();
-                Instruction *Alloca =
-                    builder.CreateAlloca(AllocType, AllocSize, "new_alloca");
-                outs() << "Replacing with: ";
-                Alloca->print(outs());
-                outs() << '\n';
-                outs().flush();
-                for (auto User : Call->users()) {
-                  // Check if the user is a CallInst and corresponds to 'free'
-                  if (auto *CI = dyn_cast<CallInst>(User)) {
-                    Function *Callee2 = CI->getCalledFunction();
-                    if (Callee2 && Callee2->getName() == "free") {
-                      // Remove the 'free' call instruction
-                      outs() << "Removing free: ";
-                      CI->print(outs());
-                      outs() << '\n';
-                      outs().flush();
-                      toErase.insert(CI);
-                    }
-                  }
-                }
-                Call->replaceAllUsesWith(Alloca);
-                toErase.insert(Call);
-              }
+  string heap_start_token = "[HEAP-START]";
+  string heap_start = itostr(totalStackSize);
+  size_t replace_pos = my_functions_code.find(heap_start_token);
+  assert(replace_pos != string::npos);
+  my_functions_code.replace(replace_pos, heap_start_token.length(), heap_start);
+
+  // Parse the string into a new module
+  SMDiagnostic error;
+  LLVMContext &context = M.getContext();
+  IRBuilder<> builder(context);
+  std::unique_ptr<Module> newModule =
+      parseIR(MemoryBuffer::getMemBuffer(my_functions_code)->getMemBufferRef(),
+              error, context);
+
+  // Link the new module into the original one
+  if (Linker::linkModules(M, std::move(newModule))) {
+    outs() << "Linking failed\n";
+  }
+
+  Function *myMallocFunc = M.getFunction("my_malloc");
+  Function *myFreeFunc = M.getFunction("my_free");
+
+  // Both `my_malloc` and `malloc` should be found!
+  if (!myMallocFunc || !mallocFunc) {
+    exit(1);
+  }
+
+  SmallVector<CallInst *> toErase;
+
+  // Replace `malloc` and `free` with `my_malloc` and `my_free` respectively
+  for (auto &F : M) {
+    // Replacement should not happen within `my_malloc` and `my_free`
+    if (&F != myMallocFunc && &F != myFreeFunc) {
+      for (auto &BB : F) {
+        for (auto &I : BB) {
+          if (auto *CI = dyn_cast<CallInst>(&I)) {
+            // Set targets
+            Function *replace_with = nullptr;
+            if (CI->getCalledFunction() == mallocFunc) {
+              replace_with = myMallocFunc;
+            } else if (CI->getCalledFunction() == freeFunc) {
+              replace_with = myFreeFunc;
+            }
+            // Do the replacement
+            if (replace_with) {
+              builder.SetInsertPoint(CI);
+              Value *arg = CI->getArgOperand(0);
+              CallInst *newCall = builder.CreateCall(replace_with, {arg});
+              CI->replaceAllUsesWith(newCall);
+              toErase.push_back(CI);
             }
           }
         }
       }
     }
   }
-  for (auto I : toErase) {
-    I->eraseFromParent();
+
+  // Remove original `malloc` and `free` calls
+  for (auto CI : toErase) {
+    CI->eraseFromParent();
   }
+
   return PreservedAnalyses::none();
 }
 
