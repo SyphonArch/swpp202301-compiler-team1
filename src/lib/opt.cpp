@@ -15,7 +15,8 @@
 #include "./opt/oracle_pass.h"
 #include "./opt/simplify_cfg.h"
 #include "./opt/use_async_load.h"
-
+#include "./opt/loop_unrolling.h"
+#include "./opt/gep_elim.h"
 using namespace std::string_literals;
 
 namespace sc::opt {
@@ -36,6 +37,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add loop-level opt passes below
 
     // Add function-level opt passes below
+
     FPM.addPass(gvn_pass::GVNpass());
     FPM.addPass(simplify_cfg::SimplifyCFG());
     FPM.addPass(lcssa_pass::LCSSApass());
@@ -43,6 +45,7 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     FPM.addPass(simplify_cfg::SimplifyCFG());
     FPM.addPass(bias_to_false_branch::BiasToFalseBranch());
     FPM.addPass(add_to_sum::AddToSum());
+    FPM.addPass(gep_elim::GEPEliminatePass());
     FPM.addPass(arithmetic_pass::ArithmeticPass());
     FPM.addPass(use_async_load::UseAsyncLoad());
 
