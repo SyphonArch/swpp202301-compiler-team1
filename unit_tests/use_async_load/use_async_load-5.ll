@@ -24,11 +24,11 @@ entry:
 ; CHECK-NEXT:   %0 = call i32 @aload_i32(i32* %add1)
 ; CHECK-NEXT:   %1 = call i32 @aload_i32(i32* %add2)
 ; CHECK-NEXT:   %2 = call i32 @aload_i32(i32* %add3)
-; CHECK-NEXT:   %e = add i32 5, 6
-; CHECK-NEXT:   %d = add i32 3, 4
-; CHECK-NEXT:   %j = add i32 1, 2
-; CHECK-NEXT:   %h = add i32 1, 3
 ; CHECK-NEXT:   %p = add i32 1, 3
+; CHECK-NEXT:   %h = add i32 1, 3
+; CHECK-NEXT:   %j = add i32 1, 2
+; CHECK-NEXT:   %d = add i32 3, 4
+; CHECK-NEXT:   %e = add i32 5, 6
 ; CHECK-NEXT:   ret void
 ; CHECK-NEXT: }
 

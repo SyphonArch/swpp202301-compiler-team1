@@ -265,6 +265,11 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
       // Part 2: Move instructions that does not use loadInst up.
       // Find indepInst that does not use loadInst, starting from
       // loadInst->getNextNode()
+
+      // do not change order of instructions before use load inst
+      bool isBelowUseLoadInst = false;
+      Instruction *usingLoadInst;
+
       if (loadInst->isTerminator() || loadInst->getNextNode()->isTerminator())
         continue;
       for (auto j = loadInst->getNextNode()->getIterator(), e = BB.end();
@@ -277,13 +282,21 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
           break;
         if (dyn_cast<LoadInst>(&J))
           continue;
+
         bool usesLoadInst = false;
         for (const Use &Op : J.operands()) {
-          if (Op.get() == loadInst)
+          if (Op.get() == loadInst) {
+            usingLoadInst = &J;
             usesLoadInst = true;
+          }
         }
-        if (usesLoadInst)
+
+        if (usesLoadInst) {
+          isBelowUseLoadInst = true;
           continue;
+        }
+
+        if (!isBelowUseLoadInst) continue;
 
         Instruction *indepInst = &J;
         Instruction *priorIndepInst = indepInst->getPrevNode();
@@ -291,7 +304,6 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
         // Move up if (1) priorIndepInst is not used in indepInst (2)
         // priorIndepInst is not a load / PHINode instruction
         // again, move as small as possible to stop register spilling
-        //        int cost_may_reduce_moveindep = 0;
 
         while (priorIndepInst) {
           if (dyn_cast<LoadInst>(priorIndepInst) ||
@@ -305,10 +317,13 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
           }
           if (usesPriorIndepInst)
             break;
-          //          cost_may_reduce_moveindep += getMinCost(priorLoadInst);
           indepInst->moveBefore(priorIndepInst);
+
+          //if the first us of the load instruction has gone down, do not change more
+//          if(priorIndepInst == usingLoadInst)
+//            break;
+
           priorIndepInst = indepInst->getPrevNode();
-          //        if(cost_may_reduce_moveindep >= 24) break;
         }
       }
     }
