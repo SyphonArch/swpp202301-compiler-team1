@@ -16,6 +16,7 @@ using namespace std;
 
 #define SAFETY_BUFFER 1024
 #define ABORT_ON_RECURSION true
+#define HEAP_SIZE 102400
 
 namespace sc::opt::heap_to_stack {
 
@@ -25,8 +26,7 @@ std::string my_functions_code =
     "declare void @free(i8*)\n"
     "@current_pos = global i8* null\n"
     "define i8* @my_malloc(i64 %size) {\n"
-    "  %heap_start_int = add i64 0, [HEAP-START]\n"
-    "  %heap_end_int = add i64 0, 102400\n"
+    "  %heap_end_int = add i64 0, [HEAP-END]\n"
     "  %heap_end = inttoptr i64 %heap_end_int to i8*\n"
     "  ; Check if current_pos is null, i.e., this is the first allocation\n"
     "  %current_pos_val = load i8*, i8** @current_pos\n"
@@ -34,7 +34,7 @@ std::string my_functions_code =
     "  br i1 %first_alloc, label %init_heap, label %alloc\n"
     "init_heap:\n"
     "  ; Set current_pos to the start of the heap\n"
-    "  %new_current_pos = inttoptr i64 %heap_start_int to i8*\n"
+    "  %new_current_pos = inttoptr i64 0 to i8*\n"
     "  store i8* %new_current_pos, i8** @current_pos\n"
     "  br label %alloc\n"
     "alloc:\n"
@@ -89,7 +89,7 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
 
   // All functions should be found!
   if (!mallocFunc || !freeFunc) {
-    return PreservedAnalyses::none();
+    return PreservedAnalyses::all();
   }
 
   // Check if module contains `malloc` usages
@@ -138,7 +138,7 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
         if (auto *AI = dyn_cast<AllocaInst>(&I)) {
           Type *alloc_type = AI->getAllocatedType();
           auto *array_size = dyn_cast<ConstantInt>(AI->getArraySize());
-          assert(array_size);
+          assert(array_size && "alloca should have static size");
           totalStackSize +=
               (int)(array_size->getZExtValue() *
                     M.getDataLayout().getTypeAllocSize(alloc_type));
@@ -147,12 +147,19 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
     }
   }
 
+  int usable_stack_size = HEAP_SIZE - totalStackSize;
+
+  // Abort if no stack can be utilized.
+  if (usable_stack_size <= 0) {
+    return PreservedAnalyses::all();
+  }
+
   // Replace the [HEAP-START] constant in the code to be inserted
-  string heap_start_token = "[HEAP-START]";
-  string heap_start = itostr(totalStackSize);
-  size_t replace_pos = my_functions_code.find(heap_start_token);
+  string heap_end_token = "[HEAP-END]";
+  string heap_end = itostr(usable_stack_size);
+  size_t replace_pos = my_functions_code.find(heap_end_token);
   assert(replace_pos != string::npos);
-  my_functions_code.replace(replace_pos, heap_start_token.length(), heap_start);
+  my_functions_code.replace(replace_pos, heap_end_token.length(), heap_end);
 
   // Parse the string into a new module
   SMDiagnostic error;
@@ -171,9 +178,7 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
   Function *myFreeFunc = M.getFunction("my_free");
 
   // All functions should be found!
-  if (!myMallocFunc || !myFreeFunc) {
-    exit(1);
-  }
+  assert(myMallocFunc && myFreeFunc && "inserted function should be found");
 
   SmallVector<CallInst *> toErase;
 
