@@ -15,6 +15,7 @@ using namespace llvm;
 using namespace std;
 
 #define SAFETY_BUFFER 1024
+#define ABORT_ON_RECURSION true
 
 namespace sc::opt::heap_to_stack {
 
@@ -23,7 +24,6 @@ std::string my_functions_code =
     "declare i8* @malloc(i64)\n"
     "declare void @free(i8*)\n"
     "@current_pos = global i8* null\n"
-    "\n"
     "define i8* @my_malloc(i64 %size) {\n"
     "  %heap_start_int = add i64 0, [HEAP-START]\n"
     "  %heap_end_int = add i64 0, 102400\n"
@@ -32,94 +32,62 @@ std::string my_functions_code =
     "  %current_pos_val = load i8*, i8** @current_pos\n"
     "  %first_alloc = icmp eq i8* %current_pos_val, null\n"
     "  br i1 %first_alloc, label %init_heap, label %alloc\n"
-    "\n"
     "init_heap:\n"
     "  ; Set current_pos to the start of the heap\n"
     "  %new_current_pos = inttoptr i64 %heap_start_int to i8*\n"
     "  store i8* %new_current_pos, i8** @current_pos\n"
     "  br label %alloc\n"
-    "\n"
     "alloc:\n"
     "  %current_pos.1 = load i8*, i8** @current_pos\n"
     "  %next_pos = getelementptr i8, i8* %current_pos.1, i64 %size\n"
     "  %overflow = icmp ugt i8* %next_pos, %heap_end\n"
     "  br i1 %overflow, label %fallback, label %update_pos\n"
-    "\n"
     "update_pos:\n"
     "  store i8* %next_pos, i8** @current_pos\n"
     "  ret i8* %current_pos.1\n"
-    "\n"
     "fallback:\n"
     "  %malloc_ptr = call i8* @malloc(i64 %size)\n"
     "  ret i8* %malloc_ptr\n"
     "}\n"
-    "\n"
     "define void @my_free(i8* %ptr) {\n"
     "  %heap_end_int = add i64 0, 102400\n"
     "  %heap_end = inttoptr i64 %heap_end_int to i8*\n"
     "  %is_on_stack = icmp ugt i8* %ptr, %heap_end\n"
     "  br i1 %is_on_stack, label %stack, label %heap\n"
-    "\n"
     "heap:\n"
     "  ret void\n"
-    "\n"
     "stack:\n"
     "  call void @free(i8* %ptr)\n"
     "  ret void\n"
     "}";
 
-bool tarjans(CallGraphNode *V, CallGraph *CG,
-             SmallVector<CallGraphNode *, 32> &Stack,
-             SmallPtrSet<CallGraphNode *, 32> &OnStack,
-             std::map<CallGraphNode *, std::pair<unsigned, unsigned>> &Indices,
-             unsigned &Index) {
-  Indices[V] = std::make_pair(Index, Index);
-  Index++;
-  Stack.push_back(V);
-  OnStack.insert(V);
+bool hasCycle(const Function *current, std::vector<const Function *> &path,
+              std::set<const Function *> &visited, CallGraph &CG) {
+  if (visited.count(current))
+    return false;
+  if (std::find(path.begin(), path.end(), current) != path.end())
+    return true;
 
-  for (auto &I : *V) {
-    if (Function *Callee = I.second->getFunction()) {
-      auto CalleeNode = CG->getOrInsertFunction(Callee);
-      if (!Indices.count(CalleeNode)) {
-        tarjans(CalleeNode, CG, Stack, OnStack, Indices, Index);
-        Indices[V].second =
-            std::min(Indices[V].second, Indices[CalleeNode].second);
-      } else if (OnStack.count(CalleeNode)) {
-        Indices[V].second =
-            std::min(Indices[V].second, Indices[CalleeNode].first);
-      }
-    }
-  }
-
-  if (Indices[V].first == Indices[V].second) {
-    while (true) {
-      CallGraphNode *N = Stack.pop_back_val();
-      OnStack.erase(N);
-      if (N == V)
-        break;
-    }
-    if (!Stack.empty() && Indices[V].first <= Indices[Stack.back()].second) {
+  path.push_back(current);
+  CallGraphNode *node = CG[current];
+  for (auto &calledFunction : *node) {
+    if (calledFunction.second->getFunction() &&
+        hasCycle(calledFunction.second->getFunction(), path, visited, CG)) {
       return true;
     }
   }
+  path.pop_back();
+  visited.insert(current);
+
   return false;
 }
 
-bool checkForRecursion(Function *F, CallGraph *CG) {
-  SmallVector<CallGraphNode *, 32> Stack;
-  SmallPtrSet<CallGraphNode *, 32> OnStack;
-  std::map<CallGraphNode *, std::pair<unsigned, unsigned>> Indices;
-  unsigned Index = 0;
-  return tarjans(CG->getOrInsertFunction(F), CG, Stack, OnStack, Indices,
-                 Index);
-}
 PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
   Function *mallocFunc = M.getFunction("malloc");
   Function *freeFunc = M.getFunction("free");
 
   bool malloc_found = false;
-  // Replace `malloc` and `free` with `my_malloc` and `my_free` respectively
+  // Check if module contains `malloc` usages
   for (auto &F : M)
     for (auto &BB : F)
       for (auto &I : BB)
@@ -134,12 +102,19 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
   }
 
   CallGraph CG(M);
-  for (auto &F : M) {
-    if (F.isDeclaration())
+  for (auto &function : M) {
+    if (function.isDeclaration())
       continue;
-    if (checkForRecursion(&F, &CG)) {
-      outs() << "Recursion found! Abort.\n";
-      return PreservedAnalyses::all();
+
+    std::vector<const Function *> path;
+    std::set<const Function *> visited;
+    if (hasCycle(&function, path, visited, CG)) {
+      outs() << "Recursive call cycle detected: ";
+      for (auto *f : path)
+        outs() << f->getName() << " -> ";
+      outs() << function.getName() << "\n";
+      if (ABORT_ON_RECURSION)
+        return PreservedAnalyses::all();
     }
   }
 
@@ -216,12 +191,10 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
       }
     }
   }
-
   // Remove original `malloc` and `free` calls
   for (auto CI : toErase) {
     CI->eraseFromParent();
   }
-
   return PreservedAnalyses::none();
 }
 
