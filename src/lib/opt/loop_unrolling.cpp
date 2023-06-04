@@ -154,7 +154,7 @@ PreservedAnalyses LoopUnrolling::run(Function &F,
       // Count, Force, Runtime, AllowExpensiveTripCount, UnrollRemainder,
       // ForgetAllSCEV
       // Remainder is not unrolled as gains are minimal
-      UnrollLoopOptions ULO{8, true, true, true, false, true};
+      UnrollLoopOptions ULO{8, true, false, true, false, true};
 
       // Perform loop unrolling using UnrollLoop function
       LoopUnrollResult Result =
