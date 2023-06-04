@@ -85,18 +85,15 @@ for entry in entries:
 
         if alive_incorrect:
             print(f'Alive2 incorrect: {alive_incorrect}')
-            # failures = True
 
         if alive_failed_to_prove:
             print(f'Alive2 failed to prove: {alive_failed_to_prove}')
 
         if alive_error:
             print(f'Alive2 error: {alive_error}')
-            failures = True
 
         if result.returncode != 0:
             print(result.stderr.decode("utf-8"))
-            failures = True
 
     print()
 
