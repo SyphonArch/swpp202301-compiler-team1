@@ -1,3 +1,5 @@
+; Simple program to test if malloc calls are properly intercepted
+
 declare i8* @malloc(i64)
 declare void @free(i8*)
 
