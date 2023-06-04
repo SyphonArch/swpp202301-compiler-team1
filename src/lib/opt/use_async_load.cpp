@@ -153,46 +153,14 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
 
   DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
 
-//for(int temp = 0; temp < 2; temp ++) {
-  
   for (BasicBlock &BB : F) {
     if (BB.empty())
       continue;
     // Part 1 : Move load instructions up
-    for (BasicBlock::iterator instrIter = BB.begin(), endIter = BB.end(); instrIter != endIter; ) {
+    for (BasicBlock::iterator instrIter = BB.begin(), endIter = BB.end();
+         instrIter != endIter;) {
       Instruction &I = *instrIter;
       ++instrIter;
-
-      // newly added!!
-
-      /*
-            // in this part, we check if the sext instruction
-            // after looking at benchmark programs, sometimes getelementptr
-         instructions were followed by sext instruction
-            // for safety, at first we dont move it over phi or def of it
-
-            if (dyn_cast<SExtInst>(&I)) {
-              SExtInst *getsextinst = dyn_cast<SExtInst>(&I);
-              Instruction *priorsextInst = getsextinst->getPrevNode();
-
-              //make a new variable
-              //this is used to somewhat prevent register spilling
-              int cost_may_reduce_sext = 0;
-              while (priorsextInst) {
-                if (dyn_cast<PHINode>(priorsextInst) ||
-                dyn_cast<GetElementPtrInst>(priorsextInst) ||
-                dyn_cast<SExtInst>(priorsextInst) ||
-                dyn_cast<ZExtInst>(priorsextInst))
-                  break;
-                if (hasOperandsext(getsextinst, priorsextInst))
-                  break;
-                cost_may_reduce_sext += getMinCost(priorsextInst);
-                getsextinst->moveBefore(priorsextInst);
-                priorsextInst = getsextinst->getPrevNode();
-                if(cost_may_reduce_sext >= 24) break;
-              }
-            } else
-      */
 
       // in this part, we check if the instruction is getelement ptr, and move
       // it upwards for safety, at first we dont move it over phi or def of it
@@ -251,7 +219,7 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
             dyn_cast<LoadInst>(priorLoadInst) ||
             dyn_cast<PHINode>(priorLoadInst) ||
             priorLoadInst->mayReadOrWriteMemory())
-      //       || dyn_cast<GetElementPtrInst>(priorLoadInst))
+          //       || dyn_cast<GetElementPtrInst>(priorLoadInst))
           break;
         if (loadPtr == priorLoadInst)
           break;
@@ -296,7 +264,8 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
           continue;
         }
 
-        if (!isBelowUseLoadInst) continue;
+        if (!isBelowUseLoadInst)
+          continue;
 
         Instruction *indepInst = &J;
         Instruction *priorIndepInst = indepInst->getPrevNode();
@@ -319,9 +288,10 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
             break;
           indepInst->moveBefore(priorIndepInst);
 
-          //if the first us of the load instruction has gone down, do not change more
-//          if(priorIndepInst == usingLoadInst)
-//            break;
+          // if the first us of the load instruction has gone down, do not
+          // change more
+          //          if(priorIndepInst == usingLoadInst)
+          //            break;
 
           priorIndepInst = indepInst->getPrevNode();
         }
@@ -377,9 +347,6 @@ PreservedAnalyses UseAsyncLoad::run(Function &F, FunctionAnalysisManager &FAM) {
         loadExistsBelow = true;
     }
   }
-
-//}
-
   return PreservedAnalyses::none();
 };
 
