@@ -88,8 +88,8 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
   Function *mallocFunc = M.getFunction("malloc");
   Function *freeFunc = M.getFunction("free");
 
-  // All functions should be found!
-  if (!mallocFunc || !freeFunc) {
+  // Abort if no `malloc` function found
+  if (!mallocFunc) {
     return PreservedAnalyses::all();
   }
 
@@ -195,7 +195,7 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
             Function *replace_with = nullptr;
             if (CI->getCalledFunction() == mallocFunc) {
               replace_with = myMallocFunc;
-            } else if (CI->getCalledFunction() == freeFunc) {
+            } else if (freeFunc && CI->getCalledFunction() == freeFunc) {
               replace_with = myFreeFunc;
             }
             // Do the replacement
