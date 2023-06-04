@@ -1,5 +1,4 @@
 Source Name,Class Name,Pass Name
-gvn_pass,GVNpass,gvn-pass
 simplify_cfg,SimplifyCFG,simplify-cfg
 lcssa_pass,LCSSApass,lcssa-pass
 loop_unrolling,LoopUnrolling,loop-unrolling
