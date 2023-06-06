@@ -112,6 +112,7 @@ add_opt_pass(RegisterPressurePrinterPass register_pressure_analysis.cpp)
 add_opt_pass(HeapToStack heap_to_stack.cpp)
 add_opt_pass(OraclePass oracle_pass.cpp)
 add_opt_pass(SimplifyCFG simplify_cfg.cpp)
+add_opt_pass(LoopExtractor loop_extractor.cpp)
 
 # /================== DO NOT EDIT BELOW ==================/
 add_library(SCOpt ${SRC_DIR}/lib/opt.cpp)

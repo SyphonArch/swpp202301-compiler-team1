@@ -17,6 +17,10 @@
 #include "./opt/oracle_pass.h"
 #include "./opt/simplify_cfg.h"
 #include "./opt/use_async_load.h"
+#include "./opt/loop_extractor.h"
+#include "llvm/Transforms/Utils/BreakCriticalEdges.h"
+#include "llvm/Transforms/Utils/LoopSimplify.h"
+
 using namespace std::string_literals;
 
 namespace sc::opt {
@@ -46,12 +50,15 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     FPM.addPass(gep_elim::GEPEliminatePass());
     FPM.addPass(arithmetic_pass::ArithmeticPass());
     FPM.addPass(use_async_load::UseAsyncLoad());
+    FPM.addPass(BreakCriticalEdgesPass());
+    FPM.addPass(LoopSimplifyPass());
 
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
     // Add CGSCC-level opt passes below
 
     MPM.addPass(llvm::createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
     // Add module-level opt passes below
+    MPM.addPass(loop_extractor::LoopExtractor2Pass());
     MPM.addPass(heap_to_stack::HeapToStack());
     MPM.addPass(oracle_pass::OraclePass());
     MPM.addPass(function_inlining::FunctionInlining());
