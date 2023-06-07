@@ -20,6 +20,7 @@
 #include "./opt/loop_extractor.h"
 #include "llvm/Transforms/Utils/BreakCriticalEdges.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
+#include "llvm/Transforms/Scalar/TailRecursionElimination.h"
 
 using namespace std::string_literals;
 
@@ -48,6 +49,8 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     
     MPM.addPass(llvm::createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
     // Add module-level opt passes below
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(TailCallElimPass()));
+
 
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(lcssa_pass::LCSSApass()));
     // currently disabled because LU cannot handle oracle now
