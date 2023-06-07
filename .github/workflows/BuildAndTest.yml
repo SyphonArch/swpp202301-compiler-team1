@@ -16,12 +16,28 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Cache Alive2 build
+      id: cache-alive2
+      uses: actions/cache@v3
+      with:
+        path: ./alive2/build
+        key: ${{ runner.os }}-alive2-${{ hashFiles('.github/scripts/build_alive2.sh') }}
+
+    - if: ${{ steps.cache-alive2.outputs.cache-hit != 'true' }}
+      name: Build Alive2
+      run: ./.github/scripts/build_alive2.sh
+
     - name: Configure CMake
-      run: cmake -GNinja -Bbuild
+      run: cmake -GNinja -Bbuild -DALIVE2_BINARY_DIR=~./alive2/build/
       
     - name: Build
       run: cmake --build build --target swpp-compiler
 
-    - name: Test
+    - name: Unit Tests
       run: ctest --test-dir build
 
+    - name: Clone benchmark repository
+      run: git clone https://github.com/snu-sf-class/swpp202301-benchmarks
+
+    - name: Test Benchmark Compilation
+      run: ./.github/scripts/test_benchmark_compilation.sh

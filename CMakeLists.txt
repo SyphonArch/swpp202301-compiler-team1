@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.13.0)
 project(swpp-compiler VERSION 2023.1.3)
 
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -13,6 +14,19 @@ option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVM in: ${LLVM_BINARY_DIR}")
+
+# Search for the alive2-tv binary
+find_program(ALIVE_TV_BINARY
+  NAMES alive-tv
+  PATHS ${ALIVE2_BINARY_DIR}
+)
+
+# Check if alive2-tv was found
+if(ALIVE_TV_BINARY)
+  message(STATUS "Found alive-tv: ${ALIVE_TV_BINARY}")
+else()
+  message(FATAL_ERROR "Could not find alive-tv")
+endif()
 
 add_compile_options(-fPIC)
 
@@ -86,12 +100,26 @@ endfunction()
 
 # /================= ADD OPT PASSES BELOW ================/
 
-add_opt_pass(DemoPropagateIntegerEquality demopropinteq.cpp)
+add_opt_pass(GVNpass gvn_pass.cpp)
+add_opt_pass(LCSSApass lcssa_pass.cpp)
+add_opt_pass(BiasToFalseBranch bias_to_false_branch.cpp)
+add_opt_pass(AddToSum add_to_sum.cpp)
+add_opt_pass(GEPEliminatePass gep_elim.cpp)
+add_opt_pass(ArithmeticPass arithmetic_pass.cpp)
+add_opt_pass(UseAsyncLoad use_async_load.cpp)
+add_opt_pass(FunctionInlining function_inlining.cpp)
+add_opt_pass(LoopUnrolling loop_unrolling.cpp)
+add_opt_pass(RegisterPressurePrinterPass register_pressure_analysis.cpp)
+add_opt_pass(HeapToStack heap_to_stack.cpp)
+add_opt_pass(OraclePass oracle_pass.cpp)
+add_opt_pass(SimplifyCFG simplify_cfg.cpp)
+add_opt_pass(LoopExtractor loop_extractor.cpp)
 
 # /================== DO NOT EDIT BELOW ==================/
 add_library(SCOpt ${SRC_DIR}/lib/opt.cpp)
 target_include_directories(SCOpt PRIVATE ${LLVM_INCLUDE_DIRS})
 llvm_map_components_to_libnames(opt_llvm_libs analysis passes scalaropts transformutils)
+
 target_link_libraries(SCOpt PRIVATE SCPrintIR OptPasses ${opt_llvm_libs})
 
 set(PROJECT_LIB "SComp")
@@ -126,4 +154,5 @@ endif (DOXYGEN_FOUND)
 
 enable_testing()
 # Add tests, subdirectories, etc below
-add_test(NAME unit_tests COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests.py ${LLVM_BINARY_DIR})
+
+add_test(NAME unit_tests COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests.py ${LLVM_BINARY_DIR} ${ALIVE_TV_BINARY})
