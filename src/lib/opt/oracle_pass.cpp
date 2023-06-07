@@ -209,6 +209,10 @@ void outline(StoreGroup &group) {
 }
 
 PreservedAnalyses OraclePass::run(Module &M, ModuleAnalysisManager &MAM) {
+  // if oracle is already defined, return
+  if (M.getFunction("oracle") != nullptr)
+    return PreservedAnalyses::all();
+
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto GetAAResults = [&](Function &F) -> AAResults & {
     return FAM.getResult<AAManager>(F);
