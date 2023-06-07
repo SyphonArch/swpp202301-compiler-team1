@@ -1,6 +1,7 @@
 #include "alloca_eliminate.h"
 
 #include "analysis.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 
@@ -61,8 +62,13 @@ AllocaEliminatePass::run(llvm::Module &M, llvm::ModuleAnalysisManager &MAM) {
           if (!AI->isStaticAlloca()) {
             throw ErrorWithAlloca(NonStaticAllocaError(), *AI);
           }
-          const auto req_size = unwrapOrThrowWithAlloca(
-              analysis::tryCalculateSize(AI->getAllocatedType()), *AI);
+          const auto num_elems =
+              llvm::dyn_cast<llvm::ConstantInt>(AI->getArraySize())
+                  ->getZExtValue();
+          const auto req_size =
+              unwrapOrThrowWithAlloca(
+                  analysis::tryCalculateSize(AI->getAllocatedType()), *AI) *
+              num_elems;
           const auto alloc_size = (req_size + 7UL) & (UINT64_MAX - 7UL);
           acc += alloc_size;
         }
