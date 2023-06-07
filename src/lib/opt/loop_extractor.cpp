@@ -130,7 +130,7 @@ bool LoopExtractor2::runOnFunction(Function &F) {
   // is more than a minimal wrapper around the loop.
   if (TLL->isLoopSimplifyForm()) {
     bool ShouldExtractLoop = false;
-    
+
     // Extract the loop if the entry block doesn't branch to the loop header.
     Instruction *EntryTI = F.getEntryBlock().getTerminator();
     if (!isa<BranchInst>(EntryTI) ||
@@ -148,7 +148,9 @@ bool LoopExtractor2::runOnFunction(Function &F) {
           break;
         }
     }
-    LLVM_DEBUG(outs() << "One Loop: " << *TLL << "\n" << "from Function " << TLL->getHeader()->getParent()->getName() << "\n");
+    LLVM_DEBUG(outs() << "One Loop: " << *TLL << "\n"
+                      << "from Function "
+                      << TLL->getHeader()->getParent()->getName() << "\n");
 
     if (ShouldExtractLoop)
       return Changed | extractLoop(TLL, LI, DT);
@@ -226,8 +228,8 @@ bool LoopExtractor2::extractLoop(Loop *L, LoopInfo &LI, DominatorTree &DT) {
     ShouldExtractLoop = false;
   }
 
-  LLVM_DEBUG(outs() << loop_size << " size, load/store/call: " << has_load_and_store << ' '
-         << has_call << '\n');
+  LLVM_DEBUG(outs() << loop_size << " size, load/store/call: "
+                    << has_load_and_store << ' ' << has_call << '\n');
 
   if (!ShouldExtractLoop)
     return false;
@@ -253,13 +255,14 @@ bool LoopExtractor2::CanConvertToOracle(Function &F) {
 
   if (F.empty())
     return false;
-  
+
   if (F.isDeclaration())
     return false;
 
   LoopInfo &LI = LookupLoopInfo(F);
 
-  LLVM_DEBUG(outs() << "Function " << F.getName() << " has " << (!LI.empty()) << " loops\n");
+  LLVM_DEBUG(outs() << "Function " << F.getName() << " has " << (!LI.empty())
+                    << " loops\n");
   // If there are no loops in the function.
   if (LI.empty())
     return false;
@@ -335,9 +338,8 @@ PreservedAnalyses LoopExtractor2Pass::run(Module &M,
     return FAM.getCachedResult<AssumptionAnalysis>(F);
   };
   auto LE2 = LoopExtractor2(NumLoops, LookupDomTree, LookupLoopInfo,
-                      LookupAssumptionCache);
+                            LookupAssumptionCache);
   LE2.runOnModule(M);
-    
 
   // outs() << "M\n";
   for (auto &F : M) {
@@ -354,7 +356,7 @@ PreservedAnalyses LoopExtractor2Pass::run(Module &M,
       }
     }
   }
-  
+
   Function *old_F = nullptr;
   std::string old_F_name;
 

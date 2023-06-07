@@ -48,24 +48,36 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     
     MPM.addPass(llvm::createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
     // Add module-level opt passes below
+
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(lcssa_pass::LCSSApass()));
+    // currently disabled because LU cannot handle oracle now
     // MPM.addPass(llvm::createModuleToFunctionPassAdaptor(loop_unrolling::LoopUnrolling()));
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gvn_pass::GVNpass()));
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
+
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(bias_to_false_branch::BiasToFalseBranch()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gvn_pass::GVNpass()));
+
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(add_to_sum::AddToSum()));
+    
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gep_elim::GEPEliminatePass()));
+    
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(arithmetic_pass::ArithmeticPass()));
-    MPM.addPass(createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
+  
     MPM.addPass(heap_to_stack::HeapToStack());
+    
     MPM.addPass(function_inlining::FunctionInlining());
-    MPM.addPass(createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gvn_pass::GVNpass()));
+    
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(BreakCriticalEdgesPass()));
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(LoopSimplifyPass()));
     MPM.addPass(loop_extractor::LoopExtractor2Pass());
-    MPM.addPass(createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gvn_pass::GVNpass()));
+    
     MPM.addPass(oracle_pass::OraclePass());
-    MPM.addPass(createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
+    
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(use_async_load::UseAsyncLoad()));
     
     MPM.run(*__M, __MAM);
