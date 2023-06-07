@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.13.0)
-project(swpp-compiler VERSION 2023.1.1)
+project(swpp-compiler VERSION 2023.1.3)
+
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -117,7 +118,8 @@ add_opt_pass(LoopExtractor loop_extractor.cpp)
 # /================== DO NOT EDIT BELOW ==================/
 add_library(SCOpt ${SRC_DIR}/lib/opt.cpp)
 target_include_directories(SCOpt PRIVATE ${LLVM_INCLUDE_DIRS})
-llvm_map_components_to_libnames(opt_llvm_libs analysis passes)
+llvm_map_components_to_libnames(opt_llvm_libs analysis passes scalaropts transformutils)
+
 target_link_libraries(SCOpt PRIVATE SCPrintIR OptPasses ${opt_llvm_libs})
 
 set(PROJECT_LIB "SComp")
@@ -152,4 +154,5 @@ endif (DOXYGEN_FOUND)
 
 enable_testing()
 # Add tests, subdirectories, etc below
+
 add_test(NAME unit_tests COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests.py ${LLVM_BINARY_DIR} ${ALIVE_TV_BINARY})

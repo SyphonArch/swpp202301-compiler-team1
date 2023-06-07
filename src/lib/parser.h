@@ -5,8 +5,8 @@
  * @file parser.h
  * @author SWPP TAs (swpp@sf.snu.ac.kr)
  * @brief Wrapper module for LLVM IR parser
- * @version 2023.1.1
- * @date 2023-04-16
+ * @version 2023.1.3
+ * @date 2023-06-07
  * @copyright Copyright (c) 2022-2023 SWPP TAs
  */
 
