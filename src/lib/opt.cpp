@@ -43,7 +43,6 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add function-level opt passes below
     FPM.addPass(gvn_pass::GVNpass());
     
-    
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
     // Add CGSCC-level opt passes below
     
@@ -59,12 +58,13 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(arithmetic_pass::ArithmeticPass()));
     MPM.addPass(createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
     MPM.addPass(heap_to_stack::HeapToStack());
+    MPM.addPass(function_inlining::FunctionInlining());
+    MPM.addPass(createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(BreakCriticalEdgesPass()));
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(LoopSimplifyPass()));
     MPM.addPass(loop_extractor::LoopExtractor2Pass());
     MPM.addPass(createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
     MPM.addPass(oracle_pass::OraclePass());
-    // MPM.addPass(function_inlining::FunctionInlining());
     MPM.addPass(createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(use_async_load::UseAsyncLoad()));
     
