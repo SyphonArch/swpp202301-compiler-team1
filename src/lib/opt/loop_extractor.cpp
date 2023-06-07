@@ -55,6 +55,7 @@ struct LoopExtractor2 {
         LookupLoopInfo(LookupLoopInfo),
         LookupAssumptionCache(LookupAssumptionCache) {}
   bool runOnModule(Module &M);
+  bool CanConvertToOracle(Function &F);
 
 private:
   // The number of natural loops to extract from the program into functions.
@@ -117,29 +118,6 @@ bool LoopExtractor2::runOnFunction(Function &F) {
 
   DominatorTree &DT = LookupDomTree(F);
 
-  // Gather all BasicBlocks that contains a store / load instructions.
-  SmallVector<BasicBlock *, 8> Blocks;
-  for (auto &BB : F) {
-    for (auto &I : BB) {
-      if (isa<StoreInst>(I) || isa<LoadInst>(I)) {
-        Blocks.push_back(&BB);
-        break;
-      }
-    }
-  }
-
-  // Function &Func = *L->getHeader()->getParent();
-  AssumptionCache *AC = LookupAssumptionCache(F);
-  CodeExtractorAnalysisCache CEAC(F);
-
-  CodeExtractor Extractor(Blocks); //, DT, false, nullptr, nullptr, AC, false,
-                          //false, nullptr, "extracted");
-  // if (Extractor.extractCodeRegion(CEAC)) {
-  //   outs() << "Extracted BasicBlocks Code\n";
-  // } else {
-  //   outs() << "Failed to extract BasicBlocks Code\n";
-  // }
-
   // If there is more than one top-level loop in this function, extract all of
   // the loops.
   if (std::next(LI.begin()) != LI.end())
@@ -152,7 +130,7 @@ bool LoopExtractor2::runOnFunction(Function &F) {
   // is more than a minimal wrapper around the loop.
   if (TLL->isLoopSimplifyForm()) {
     bool ShouldExtractLoop = false;
-
+    
     // Extract the loop if the entry block doesn't branch to the loop header.
     Instruction *EntryTI = F.getEntryBlock().getTerminator();
     if (!isa<BranchInst>(EntryTI) ||
@@ -170,6 +148,7 @@ bool LoopExtractor2::runOnFunction(Function &F) {
           break;
         }
     }
+    LLVM_DEBUG(outs() << "One Loop: " << *TLL << "\n" << "from Function " << TLL->getHeader()->getParent()->getName() << "\n");
 
     if (ShouldExtractLoop)
       return Changed | extractLoop(TLL, LI, DT);
@@ -247,11 +226,9 @@ bool LoopExtractor2::extractLoop(Loop *L, LoopInfo &LI, DominatorTree &DT) {
     ShouldExtractLoop = false;
   }
 
-  outs() << loop_size << " size, load/store/call: " << has_load_and_store << ' '
-         << has_call << '\n';
+  LLVM_DEBUG(outs() << loop_size << " size, load/store/call: " << has_load_and_store << ' '
+         << has_call << '\n');
 
-  outs() << L->getHeader()->getParent()->getName() << " Loop: ";
-  outs() << *L << '\n';
   if (!ShouldExtractLoop)
     return false;
 
@@ -268,6 +245,82 @@ bool LoopExtractor2::extractLoop(Loop *L, LoopInfo &LI, DominatorTree &DT) {
   return false;
 }
 
+bool LoopExtractor2::CanConvertToOracle(Function &F) {
+  LLVM_DEBUG(outs() << "\tInvestigating function " << F.getName() << "\n");
+  LLVM_DEBUG(outs() << F << "\n");
+  if (F.hasOptNone())
+    return false;
+
+  if (F.empty())
+    return false;
+  
+  if (F.isDeclaration())
+    return false;
+
+  LoopInfo &LI = LookupLoopInfo(F);
+
+  LLVM_DEBUG(outs() << "Function " << F.getName() << " has " << (!LI.empty()) << " loops\n");
+  // If there are no loops in the function.
+  if (LI.empty())
+    return false;
+
+  DominatorTree &DT = LookupDomTree(F);
+  bool ShouldExtractLoop = true;
+
+  auto numI = 0;
+  for (BasicBlock &BB : F) {
+    for (auto it = BB.begin(); it != BB.end(); ++it) {
+      numI++;
+    }
+  }
+
+  // crash if oracle contains more than 50 LLVM IR instructions
+  // function calls and aload instructions are checked by the
+  // swpp-interpreter
+  if (numI > 50)
+    return false;
+
+  // If the loop do not have load or store instructions, don't extract it.
+  bool has_load_and_store = false;
+  for (auto &loop_block : F) {
+    for (auto &I : loop_block) {
+      if (isa<LoadInst>(I) || isa<StoreInst>(I)) {
+        has_load_and_store = true;
+        break;
+      }
+    }
+  }
+
+  if (!has_load_and_store)
+    return false;
+
+  bool has_call = false;
+  for (auto &loop_block : F) {
+    for (auto &I : loop_block) {
+      if (isa<CallInst>(I)) {
+        LLVM_DEBUG(outs() << "Call Instruction: " << I << "\n");
+        CallInst *CI = dyn_cast<CallInst>(&I);
+        Function *called_func = CI->getCalledFunction();
+
+        // check if called_func has no Declaration, or it has the name
+        // as "read" or "write".
+        if ((called_func->getName() == "read" ||
+             called_func->getName() == "write" ||
+             called_func->getName() == "malloc" ||
+             called_func->getName() == "free") ||
+            (called_func && !called_func->isDeclaration()))
+          has_call = true;
+      }
+    }
+  }
+
+  if (has_call) {
+    return false;
+  }
+
+  return true;
+}
+
 PreservedAnalyses LoopExtractor2Pass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
   LLVM_DEBUG(dbgs() << "Loop Extractor!\n");
@@ -281,10 +334,10 @@ PreservedAnalyses LoopExtractor2Pass::run(Module &M,
   auto LookupAssumptionCache = [&FAM](Function &F) -> AssumptionCache * {
     return FAM.getCachedResult<AssumptionAnalysis>(F);
   };
-  if (!LoopExtractor2(NumLoops, LookupDomTree, LookupLoopInfo,
-                      LookupAssumptionCache)
-           .runOnModule(M))
-    return PreservedAnalyses::all();
+  auto LE2 = LoopExtractor2(NumLoops, LookupDomTree, LookupLoopInfo,
+                      LookupAssumptionCache);
+  LE2.runOnModule(M);
+    
 
   // outs() << "M\n";
   for (auto &F : M) {
@@ -301,42 +354,48 @@ PreservedAnalyses LoopExtractor2Pass::run(Module &M,
       }
     }
   }
-
-  // std::string old_func_name = nullptr;
+  
   Function *old_F = nullptr;
+  std::string old_F_name;
 
-  // // select function with largest size among names endswith "extracted"
-  // std::map<Function *, int> extracted_funcs;
-  // for (auto &F : M) {
-  //   // Check if name of the function includes the string "extracted"
-  //   if (F.getName().find("extracted") != std::string::npos) {
-  //     // insert to map with size
-  //     int size = F.size();
-  //     extracted_funcs.insert(std::pair<Function *, int>(&F, size));
-  //   }
-  // }
-
-  // // select largest size function
-  // for (auto &func : extracted_funcs) {
-  //   if (old_F == nullptr) {
-  //     old_F = func.first;
-  //   } else {
-  //     if (func.second > extracted_funcs[old_F]) {
-  //       old_F = func.first;
-  //     }
-  //   }
-  // }
-
+  std::map<Function *, int> extracted_funcs;
   for (auto &F : M) {
-    if (F.getName().endswith("extracted")) {
-      old_F = &F;
-      // Create new function
-      F.setName("oracle");
-      break;
+    if (LE2.CanConvertToOracle(F)) {
+      // insert to map with size
+      int size = F.size();
+      extracted_funcs.insert(std::pair<Function *, int>(&F, size));
     }
   }
 
-  // check if old_func_name changed
+  // select largest size function
+  for (auto &func : extracted_funcs) {
+    if (old_F == nullptr) {
+      old_F = func.first;
+      old_F_name = old_F->getName().str();
+    } else {
+      if (func.second > extracted_funcs[old_F]) {
+        old_F = func.first;
+        old_F_name = old_F->getName().str();
+      }
+    }
+  }
+
+  // if there is no extracted function
+  // investigate all other functions
+
+  // for (auto &F : M) {
+  //   if (LE2.CanConvertToOracle(F)) {
+  //   // if (F.getName().endswith("extracted")) {
+  //     outs() << "Function " << F.getName() << " is converted to oracle\n";
+  //     // old_func_name = F.getName();
+  //     old_F = &F;
+  //     // Create new function
+  //     s = F.getName().str();
+  //     F.setName("oracle");
+  //     break;
+  //   }
+  // }
+
   if (old_F == nullptr) {
     return PreservedAnalyses::all();
   }
@@ -347,7 +406,7 @@ PreservedAnalyses LoopExtractor2Pass::run(Module &M,
     for (auto &BB : func) {
       for (auto it = BB.begin(), end = BB.end(); it != end; ++it) {
         if (CallInst *callInst = dyn_cast<CallInst>(&*it)) {
-          if (callInst->getCalledFunction() == old_F) {
+          if (callInst->getCalledFunction()->getName() == old_F_name) {
             callInst->setCalledFunction(old_F);
           }
         }
