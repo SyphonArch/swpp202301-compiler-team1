@@ -1,4 +1,5 @@
 ; Check that replacement doesn't happen on recursive modules
+; WRAP-UP: heap-to-stack now runs on recursive modules too.
 
 define void @recursive_malloc(i64 %n) {
 ; CHECK-LABEL: @recursive_malloc(i64 %n)
@@ -6,10 +7,10 @@ define void @recursive_malloc(i64 %n) {
 ; CHECK-NEXT:   %0 = icmp sgt i64 %n, 0
 ; CHECK-NEXT:   br i1 %0, label %allocate, label %finish
 ; CHECK: allocate:
-; CHECK-NEXT:   %1 = call i8* @malloc(i64 %n)
+; CHECK-NEXT:   %1 = call i8* @my_malloc(i64 %n)
 ; CHECK-NEXT:   %2 = add i64 %n, -1
 ; CHECK-NEXT:   call void @recursive_malloc(i64 %2)
-; CHECK-NEXT:   call void @free(i8* %1)
+; CHECK-NEXT:   call void @my_free(i8* %1)
 ; CHECK-NEXT:   br label %finish
 ; CHECK: finish:
 ; CHECK-NEXT:   ret void

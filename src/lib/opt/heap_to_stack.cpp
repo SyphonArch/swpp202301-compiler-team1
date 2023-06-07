@@ -14,7 +14,7 @@
 using namespace llvm;
 using namespace std;
 
-#define ABORT_ON_RECURSION true
+#define ABORT_ON_RECURSION false
 
 const int SAFETY_BUFFER = 1024;
 const int HEAP_SIZE = 102400;
@@ -119,20 +119,23 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
 
   // Check if recursive calls exist
   // Recursive calls invalidate the runtime stack usage upper bound
-  if (ABORT_ON_RECURSION) {
-    CallGraph CG(M);
-    for (auto &function : M) {
-      if (function.isDeclaration())
-        continue;
-      std::vector<const Function *> path;
-      std::set<const Function *> visited;
-      if (hasCycle(&function, path, visited, CG)) {
-        outs() << "Recursive call cycle detected: ";
-        for (auto *f : path)
-          outs() << f->getName() << " -> ";
-        outs() << function.getName() << "\n";
+  bool has_recursion = false;
+  CallGraph CG(M);
+  for (auto &function : M) {
+    if (function.isDeclaration())
+      continue;
+    std::vector<const Function *> path;
+    std::set<const Function *> visited;
+    if (hasCycle(&function, path, visited, CG)) {
+      outs() << "Recursive call cycle detected: ";
+      for (auto *f : path)
+        outs() << f->getName() << " -> ";
+      outs() << function.getName() << "\n";
+      has_recursion = true;
+      if (ABORT_ON_RECURSION) {
         return PreservedAnalyses::all();
       }
+      break;
     }
   }
 
@@ -156,12 +159,18 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
     }
   }
 
+  if (has_recursion) {
+    totalStackSize *= 10;
+  }
+
   int usable_stack_size = HEAP_SIZE - totalStackSize;
 
   // Abort if no stack can be utilized.
   if (usable_stack_size <= 0) {
     outs() << "Not enough stack area left\n";
     return PreservedAnalyses::all();
+  } else {
+    outs() << "HTS using " << usable_stack_size << " bytes of stack!\n";
   }
 
   // Replace the [HEAP-START] constant in the code to be inserted
