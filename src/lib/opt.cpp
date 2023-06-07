@@ -41,29 +41,33 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add loop-level opt passes below
 
     // Add function-level opt passes below
-    FPM.addPass(lcssa_pass::LCSSApass());
-    FPM.addPass(loop_unrolling::LoopUnrolling());
     FPM.addPass(gvn_pass::GVNpass());
-    FPM.addPass(simplify_cfg::SimplifyCFG());
-    FPM.addPass(bias_to_false_branch::BiasToFalseBranch());
-    FPM.addPass(add_to_sum::AddToSum());
-    FPM.addPass(gep_elim::GEPEliminatePass());
-    FPM.addPass(arithmetic_pass::ArithmeticPass());
-    FPM.addPass(use_async_load::UseAsyncLoad());
-    FPM.addPass(BreakCriticalEdgesPass());
-    FPM.addPass(LoopSimplifyPass());
-
+    
+    
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
     // Add CGSCC-level opt passes below
-
+    
     MPM.addPass(llvm::createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
     // Add module-level opt passes below
-    MPM.addPass(loop_extractor::LoopExtractor2Pass());
-    MPM.addPass(heap_to_stack::HeapToStack());
-    MPM.addPass(oracle_pass::OraclePass());
-    MPM.addPass(function_inlining::FunctionInlining());
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(lcssa_pass::LCSSApass()));
+    // MPM.addPass(llvm::createModuleToFunctionPassAdaptor(loop_unrolling::LoopUnrolling()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gvn_pass::GVNpass()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(bias_to_false_branch::BiasToFalseBranch()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(add_to_sum::AddToSum()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gep_elim::GEPEliminatePass()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(arithmetic_pass::ArithmeticPass()));
     MPM.addPass(createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
-
+    MPM.addPass(heap_to_stack::HeapToStack());
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(BreakCriticalEdgesPass()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(LoopSimplifyPass()));
+    MPM.addPass(loop_extractor::LoopExtractor2Pass());
+    MPM.addPass(createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
+    MPM.addPass(oracle_pass::OraclePass());
+    // MPM.addPass(function_inlining::FunctionInlining());
+    MPM.addPass(createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(use_async_load::UseAsyncLoad()));
+    
     MPM.run(*__M, __MAM);
     sc::print_ir::printIRIfVerbose(*__M, "After optimization");
   } catch (const std::exception &e) {
