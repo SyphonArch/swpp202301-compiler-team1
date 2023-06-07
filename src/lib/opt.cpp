@@ -66,15 +66,14 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
   
     MPM.addPass(heap_to_stack::HeapToStack());
     
-    MPM.addPass(function_inlining::FunctionInlining());
-    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
-    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gvn_pass::GVNpass()));
+    // function inlining is also disabled because this hurts performance with oracle
+    // MPM.addPass(function_inlining::FunctionInlining());
+    // MPM.addPass(llvm::createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
+    // MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gvn_pass::GVNpass()));
     
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(BreakCriticalEdgesPass()));
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(LoopSimplifyPass()));
     MPM.addPass(loop_extractor::LoopExtractor2Pass());
-    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
-    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gvn_pass::GVNpass()));
     
     MPM.addPass(oracle_pass::OraclePass());
     
