@@ -126,6 +126,11 @@ int remove_freeze(Function &F) {
 PreservedAnalyses LoopUnrolling::run(Function &F,
                                      FunctionAnalysisManager &FAM) {
 
+  // Do not modify oracle code!
+  if (F.getName() == "oracle") {
+    return PreservedAnalyses::all();
+  }
+
   // Loops must be in rotated canonical form for unrolling to happen
   if (DO_LCSSA_CONVERSION)
     lcssa(F, FAM);
@@ -154,7 +159,7 @@ PreservedAnalyses LoopUnrolling::run(Function &F,
       // Count, Force, Runtime, AllowExpensiveTripCount, UnrollRemainder,
       // ForgetAllSCEV
       // Remainder is not unrolled as gains are minimal
-      UnrollLoopOptions ULO{8, true, false, true, false, true};
+      UnrollLoopOptions ULO{8, true, true, true, false, true};
 
       // Perform loop unrolling using UnrollLoop function
       LoopUnrollResult Result =

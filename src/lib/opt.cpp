@@ -46,45 +46,53 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     FPM.addPass(llvm::createFunctionToLoopPassAdaptor(std::move(LPM)));
     // Add function-level opt passes below
     FPM.addPass(gvn_pass::GVNpass());
-    
+
     CGPM.addPass(llvm::createCGSCCToFunctionPassAdaptor(std::move(FPM)));
     // Add CGSCC-level opt passes below
-    
+
     MPM.addPass(llvm::createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
     // Add module-level opt passes below
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(TailCallElimPass()));
 
+    MPM.addPass(
+        llvm::createModuleToFunctionPassAdaptor(lcssa_pass::LCSSApass()));
 
-    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(lcssa_pass::LCSSApass()));
-    // currently disabled because LU cannot handle oracle now
-    // MPM.addPass(llvm::createModuleToFunctionPassAdaptor(loop_unrolling::LoopUnrolling()));
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gvn_pass::GVNpass()));
-    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
+    MPM.addPass(
+        llvm::createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
 
-    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(bias_to_false_branch::BiasToFalseBranch()));
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(
+        bias_to_false_branch::BiasToFalseBranch()));
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gvn_pass::GVNpass()));
 
-    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(add_to_sum::AddToSum()));
-    
-    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gep_elim::GEPEliminatePass()));
-    
-    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(arithmetic_pass::ArithmeticPass()));
-  
+    MPM.addPass(
+        llvm::createModuleToFunctionPassAdaptor(gep_elim::GEPEliminatePass()));
+
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(
+        arithmetic_pass::ArithmeticPass()));
+
     MPM.addPass(heap_to_stack::HeapToStack());
-    
-    // function inlining is also disabled because this hurts performance with oracle
-    // MPM.addPass(function_inlining::FunctionInlining());
+
+    // function inlining is also disabled because this hurts performance with
+    // oracle MPM.addPass(function_inlining::FunctionInlining());
     // MPM.addPass(llvm::createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
     // MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gvn_pass::GVNpass()));
-    
-    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(BreakCriticalEdgesPass()));
+
+    MPM.addPass(
+        llvm::createModuleToFunctionPassAdaptor(BreakCriticalEdgesPass()));
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(LoopSimplifyPass()));
     MPM.addPass(loop_extractor::LoopExtractor2Pass());
-    
+
     MPM.addPass(oracle_pass::OraclePass());
-    
-    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(use_async_load::UseAsyncLoad()));
-    
+
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(
+        use_async_load::UseAsyncLoad()));
+
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(
+        loop_unrolling::LoopUnrolling()));
+    MPM.addPass(
+        llvm::createModuleToFunctionPassAdaptor(add_to_sum::AddToSum()));
+
     MPM.run(*__M, __MAM);
     sc::print_ir::printIRIfVerbose(*__M, "After optimization");
   } catch (const std::exception &e) {
