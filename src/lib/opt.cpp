@@ -54,8 +54,10 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
     // Add module-level opt passes below
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(TailCallElimPass()));
 
+    MPM.addPass(function_inlining::FunctionInlining());
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gvn_pass::GVNpass()));
     MPM.addPass(
-        llvm::createModuleToFunctionPassAdaptor(lcssa_pass::LCSSApass()));
+        llvm::createModuleToFunctionPassAdaptor(simplify_cfg::SimplifyCFG()));
 
     MPM.addPass(llvm::createModuleToFunctionPassAdaptor(gvn_pass::GVNpass()));
     MPM.addPass(
@@ -92,6 +94,9 @@ optimizeIR(std::unique_ptr<llvm::Module> &&__M,
         loop_unrolling::LoopUnrolling()));
     MPM.addPass(
         llvm::createModuleToFunctionPassAdaptor(add_to_sum::AddToSum()));
+
+    MPM.addPass(llvm::createModuleToFunctionPassAdaptor(
+        bias_to_false_branch::BiasToFalseBranch()));
 
     MPM.run(*__M, __MAM);
     sc::print_ir::printIRIfVerbose(*__M, "After optimization");

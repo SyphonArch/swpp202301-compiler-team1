@@ -246,6 +246,11 @@ bool shouldInline(CallInst *CI) {
     }
   }
 
+  // Check number of basic blocks in Callee
+  if (std::distance(Callee->begin(), Callee->end()) >= 2) {
+    return false;
+  }
+
   // Check if the function has multiple return instruction.
   SmallVector<ReturnInst *, 4> Returns;
   getReturns(Callee, Returns);
@@ -263,13 +268,13 @@ bool shouldInline(CallInst *CI) {
     return false;
   }
 
-  // Hard limit: register pressure 30.
-  unsigned int calleeRegisterPressure = calculateRegisterPressure(*Callee);
-  unsigned int callerRegisterPressure =
-      calculateRegisterPressure(*CI->getFunction());
-  if (calleeRegisterPressure + callerRegisterPressure > 30) {
-    return false;
-  }
+  // // Hard limit: register pressure 30.
+  // unsigned int calleeRegisterPressure = calculateRegisterPressure(*Callee);
+  // unsigned int callerRegisterPressure =
+  //     calculateRegisterPressure(*CI->getFunction());
+  // if (calleeRegisterPressure + callerRegisterPressure > 30) {
+  //   return false;
+  // }
 
   return true;
 }
@@ -299,8 +304,31 @@ PreservedAnalyses FunctionInlining::run(Module &M, ModuleAnalysisManager &MAM) {
       inlineFunction(CI, *Callee);
     }
 
+    
+
     LLVM_DEBUG(dbgs() << "After Function Inlining Pass\n" << F << "\n");
   }
+
+  for (auto I = M.begin(), E = M.end(); I != E; ) {
+    Function *F = &*I++;
+    if (F->isDeclaration() || !F->use_empty()) {
+      continue;
+      
+    // Check if F has any calls
+    bool hasCalls = false;
+    for (User *U : F->users()) {
+      if (isa<CallInst>(U)) {
+        hasCalls = true;
+        break;
+      }
+    }
+
+    if (!hasCalls) {
+      F->eraseFromParent();
+    }
+  }
+  }
+
 
   if (Changed)
     return PreservedAnalyses::none();
