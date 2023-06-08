@@ -416,9 +416,9 @@ PreservedAnalyses LoopExtractor2Pass::run(Module &M,
     }
   }
 
-  PreservedAnalyses PA;
-  PA.preserve<LoopAnalysis>();
-  return PA;
+  // PreservedAnalyses PA;
+  // PA.preserve<LoopAnalysis>();
+  return PreservedAnalyses::none();
 }
 
 extern "C" ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {

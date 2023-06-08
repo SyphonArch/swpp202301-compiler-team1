@@ -1,4 +1,6 @@
 #include "heap_to_stack.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -9,6 +11,7 @@
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
+
 #include <map>
 
 using namespace llvm;
@@ -92,7 +95,106 @@ bool hasCycle(const Function *current, std::vector<const Function *> &path,
   return false;
 }
 
+uint64_t tryCalculateSize(llvm::Type *__ty) noexcept {
+  if (llvm::isa<llvm::PointerType>(__ty)) {
+    return 8UL;
+  } else if (llvm::isa<llvm::IntegerType>(__ty)) {
+    switch (__ty->getIntegerBitWidth()) {
+    case 1:
+    case 8:
+      return 1UL;
+    case 16:
+      return 2UL;
+    case 32:
+      return 4UL;
+    case 64:
+      return 8UL;
+    default:
+      exit(1);
+    }
+  } else if (llvm::isa<llvm::ArrayType>(__ty)) {
+    auto elem_size_res = tryCalculateSize(__ty->getArrayElementType());
+    return elem_size_res * __ty->getArrayNumElements();
+  } else {
+    exit(1);
+  }
+}
+
 PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
+  // remove constexpr
+  for (Function &F : M)
+    for (BasicBlock &BB : F) {
+      for (auto it = BB.rbegin(); it != BB.rend(); ++it) {
+        Instruction &I = *it;
+
+        for (auto &use : I.operands()) {
+          Value *operand = use.get();
+
+          // ConstantExpr includes 'inlined' operations as in
+          // store i32 %val, %i32* getelementptr...
+          ConstantExpr *expr = dyn_cast<ConstantExpr>(operand);
+          if (expr) {
+            Instruction *newI = expr->getAsInstruction();
+            newI->insertBefore(&I);
+            use.set(newI);
+          }
+        }
+      }
+    }
+
+  
+  // remove global variabless
+  constexpr uint64_t START_ADDRESS = 2048UL;
+
+
+  llvm::IntegerType *Int64Ty = llvm::Type::getInt64Ty(M.getContext());
+  uint64_t acc = 0UL;
+  std::vector<llvm::GlobalVariable *> gvs;
+
+  for (llvm::GlobalVariable &gv : M.globals()) {
+    const auto gv_size =
+      tryCalculateSize(gv.getValueType());
+
+    const auto alloc_size = (gv_size + 7UL) & (UINT64_MAX - 7UL);
+    
+    if (START_ADDRESS + acc + alloc_size >= 4088UL) {
+      break;
+    }
+
+    gvs.push_back(&gv);
+    uint64_t addr = START_ADDRESS + acc;
+    std::vector<llvm::PtrToIntInst *> trashBin;
+    std::vector<llvm::Use *> uses;
+    for (llvm::Use &use : gv.uses())
+      uses.push_back(&use);
+    for (llvm::Use *use : uses) {
+      llvm::User *user = use->getUser();
+      if (llvm::Instruction *I = llvm::dyn_cast<llvm::Instruction>(user)) {
+        if (llvm::PtrToIntInst *PTII = llvm::dyn_cast<llvm::PtrToIntInst>(I)) {
+          llvm::Constant *C =
+              llvm::ConstantInt::get(PTII->getType(), addr, true);
+          PTII->replaceAllUsesWith(C);
+          trashBin.push_back(PTII);
+        } else {
+          llvm::ConstantInt *C = llvm::ConstantInt::get(Int64Ty, addr, true);
+          llvm::CastInst *CI =
+              llvm::CastInst::CreateBitOrPointerCast(C, gv.getType(), "", I);
+          use->set(CI);
+        }
+      }
+    }
+    for (llvm::PtrToIntInst *PTII : trashBin)
+      PTII->eraseFromParent();
+    // const auto gv_size =
+    //     tryCalculateSize(gv.getValueType());
+
+    // const auto alloc_size = (gv_size + 7UL) & (UINT64_MAX - 7UL);
+    acc += alloc_size;
+  }
+  for (llvm::GlobalVariable *gv : gvs)
+    gv->eraseFromParent();
+
+
   Function *mallocFunc = M.getFunction("malloc");
   Function *freeFunc = M.getFunction("free");
 
@@ -117,6 +219,7 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
     return PreservedAnalyses::all();
   }
 
+  std::unordered_map<const Function*, bool> recursive_functions;
   // Check if recursive calls exist
   // Recursive calls invalidate the runtime stack usage upper bound
   bool has_recursion = false;
@@ -132,35 +235,47 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
         outs() << f->getName() << " -> ";
       outs() << function.getName() << "\n";
       has_recursion = true;
+      recursive_functions[&function] = true;
+
       if (ABORT_ON_RECURSION) {
         return PreservedAnalyses::all();
       }
-      break;
+    } else {
+      recursive_functions[&function] = false;
     }
+
   }
 
   // Calculate the upper bound of runtime stack usage
   int totalStackSize = SAFETY_BUFFER;
   for (auto &F : M) {
+    int instructionSize = 0;
+    int allocaSize = 0;
     for (auto &BB : F) {
       for (auto &I : BB) {
-        totalStackSize += 8; // Add 8 bytes for each instruction
+        instructionSize += 8; // Add 8 bytes for each instruction
 
         // If the instruction is an alloca, add its allocated size
         if (auto *AI = dyn_cast<AllocaInst>(&I)) {
           Type *alloc_type = AI->getAllocatedType();
           auto *array_size = dyn_cast<ConstantInt>(AI->getArraySize());
           assert(array_size && "alloca should have static size");
-          totalStackSize +=
+          allocaSize +=
               (int)(array_size->getZExtValue() *
                     M.getDataLayout().getTypeAllocSize(alloc_type));
         }
       }
     }
-  }
 
-  if (has_recursion) {
-    totalStackSize *= 10;
+    int functionStackSize = max(instructionSize - 32 * 8, 0) + allocaSize;
+    
+
+    if (recursive_functions[&F]) {
+      functionStackSize += allocaSize * 10;
+      functionStackSize *= 5;
+    }
+    outs() << functionStackSize << " bytes for " << F.getName() << "\n";
+    totalStackSize += functionStackSize;
   }
 
   int usable_stack_size = HEAP_SIZE - totalStackSize;
@@ -232,6 +347,8 @@ PreservedAnalyses HeapToStack::run(Module &M, ModuleAnalysisManager &MAM) {
   for (auto CI : toErase) {
     CI->eraseFromParent();
   }
+
+
   return PreservedAnalyses::none();
 }
 
